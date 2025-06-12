@@ -6,7 +6,7 @@
 /*   By: mbatty <mbatty@student.42angouleme.fr>     +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/05/03 12:11:45 by mbatty            #+#    #+#             */
-/*   Updated: 2025/06/11 00:15:14 by mbatty           ###   ########.fr       */
+/*   Updated: 2025/06/11 15:13:52 by mbatty           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -57,7 +57,7 @@ Window::Window() : _lastFrame(0)
 	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 	glEnable(GL_DEPTH_TEST);
 	this->center();
-	this->setIcon("src/assets/textures/icon_swapped.bmp");
+	// this->setIcon("src/assets/textures/icon_swapped.bmp");
 }
 
 Window::~Window()

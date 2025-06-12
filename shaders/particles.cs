@@ -21,25 +21,25 @@ const float DeltaT = 0.0005;
 
 uniform float time;
 
-void main() {
+uniform vec3 attractorPos;
+
+void main()
+{
     uint idx = gl_GlobalInvocationID.x;
-    vec3 BlackHolePos1 = vec3(0,0,0);
 
-    vec3 p = position[idx].xyz;
+    vec3 particlePos = position[idx].xyz;
+    vec3 particleVel = velocity[idx].xyz;
 
-    BlackHolePos1.xyz = vec3(sin(time), cos(time), sin(time));
-    vec3 d = BlackHolePos1 - p;
+    vec3 d = attractorPos - particlePos;
     float dist = length(d);
     vec3 force = (Gravity1 / dist) * normalize(d);
 
     if (dist > MaxDist)
-    {
-        position[idx].xyz = BlackHolePos1;
-    }
+        position[idx].xyz = vec3(0);
     else
     {
-        vec3 a = force * ParticleInvMass;
-        position[idx] = vec4(p + velocity[idx].xyz * DeltaT + 0.5 * a * DeltaT * DeltaT, 1.0);
-        velocity[idx] = vec4( velocity[idx].xyz + a * DeltaT, 0.0);
+        vec3 a = force;
+        position[idx] = vec4(particlePos + particleVel * DeltaT + 0.5 * a * DeltaT * DeltaT, 1.0);
+        velocity[idx] = vec4(particleVel + a * DeltaT, 0.0);
     }
 }

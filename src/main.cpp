@@ -6,7 +6,7 @@
 /*   By: mbatty <mbatty@student.42angouleme.fr>     +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/04/10 13:33:29 by mbatty            #+#    #+#             */
-/*   Updated: 2025/06/11 02:00:38 by mbatty           ###   ########.fr       */
+/*   Updated: 2025/06/12 15:08:46 by mbatty           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -27,6 +27,7 @@ float	RENDER_DISTANCE = 1000;
 bool	F1 = false;
 bool	F3 = false;
 bool	lock_fps = true;
+bool	PAUSED = false;
 
 Font				*FONT;
 ShaderManager		*SHADER_MANAGER;
@@ -38,24 +39,14 @@ Window				*WINDOW;
 ComputeShader	*COMPUTE_SHADER;
 ComputeShader	*LOAD_SHADER;
 
-void	interpolateTo(float &float1, float &float2, float deltaTime)
-{
-	float1 += (float2 - float1) * 4.0f * deltaTime;
-
-	float2 = 1.0f - float1;
-}
-
-void	closeWindow()
-{
-	glfwSetWindowShouldClose(WINDOW->getWindowData(), true);
-}
-
 void	key_hook(GLFWwindow *window, int key, int scancode, int action, int mods)
 {
 	(void)window;(void)key;(void)scancode;(void)action;(void)mods;
 
 	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
-			glfwSetWindowShouldClose(window, true);
+		glfwSetWindowShouldClose(window, true);
+	if (key == GLFW_KEY_P && action == GLFW_PRESS)
+		PAUSED = !PAUSED;
 }
 
 void	build(ShaderManager *shader)
@@ -151,26 +142,47 @@ void	initBuffers()
 
 	glBindVertexArray(0);
 
-	loadParticles(10000000);
+	loadParticles(1000000);
 }
+
+vec3	attractorPos(0, 0, 0);
+
+vec3	NEAR_COLOR(0.0, 1.0, 0.0);
+vec3	FAR_COLOR(1.0, 0.0, 0.0);
+
+float	MAX_PARTICLE_SIZE = 30.0;
+
+float	GRADIENT_SCALE = 50.0;
 
 void	render()
 {
+	if (!PAUSED)
+		attractorPos = vec3(std::sin(glfwGetTime()) * 10, 0, std::cos(glfwGetTime()) * 10);
+
+	glUseProgram(SHADER_MANAGER->get("draw")->ID);	
+	SHADER_MANAGER->get("draw")->setVec3("attractorPos", attractorPos);
+	SHADER_MANAGER->get("draw")->setVec3("NEAR_COLOR", NEAR_COLOR);
+	SHADER_MANAGER->get("draw")->setVec3("FAR_COLOR", FAR_COLOR);
+	SHADER_MANAGER->get("draw")->setVec3("viewPos", CAMERA->pos);
+	SHADER_MANAGER->get("draw")->setFloat("MAX_PARTICLE_SIZE", MAX_PARTICLE_SIZE);
+	SHADER_MANAGER->get("draw")->setFloat("GRADIENT_SCALE", GRADIENT_SCALE);
+	
 	glUseProgram(COMPUTE_SHADER->ID);
 	glUniform1f(glGetUniformLocation(COMPUTE_SHADER->ID, "time"), glfwGetTime());
+	glUniform3fv(glGetUniformLocation(COMPUTE_SHADER->ID, "attractorPos"), 1, &attractorPos.x);
+	glUniform1f(glGetUniformLocation(COMPUTE_SHADER->ID, "deltaTime"), WINDOW->getDeltaTime());
 	
-	glDispatchCompute(PARTICLES_COUNT, 1, 1);
-
-	glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	if (!PAUSED)
+	{
+		glDispatchCompute(PARTICLES_COUNT, 1, 1);
+	
+		glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+	}
 
 	Shader* particleShader = SHADER_MANAGER->get("draw");
 	CAMERA->setViewMatrix(*particleShader);
 
 	glBindVertexArray(posVAO);
-	glPointSize(2.0f);
 	glDrawArrays(GL_POINTS, 0, PARTICLES_COUNT);
 	glBindVertexArray(0);
 }
@@ -182,7 +194,7 @@ void	frame_key_hook(Window &window)
 
 	if (glfwGetKey(window.getWindowData(), GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS)
 	{
-		loadParticles(100);
+		// loadParticles(100);
 		speedBoost = 20.0f;
 	}
 	
@@ -215,12 +227,44 @@ void	frame_key_hook(Window &window)
 		CAMERA->pitch = -89.0f;
 }
 
+void	move_mouse_hook(GLFWwindow* window, double xpos, double ypos)
+{
+	(void)window;
+	(void)xpos;
+	(void)ypos;
+	
+	static float lastX = SCREEN_WIDTH / 2;
+	static float lastY = SCREEN_HEIGHT / 2;
+
+	float xoffset = xpos - lastX;
+	float yoffset = lastY - ypos; // reversed: y ranges bottom to top
+	
+	lastX = xpos;
+	lastY = ypos;
+
+	const float sensitivity = 0.1f;
+	
+	xoffset *= sensitivity;
+	yoffset *= sensitivity;
+	
+	CAMERA->yaw += xoffset;
+	CAMERA->pitch += yoffset;
+	
+	if(CAMERA->pitch > 89.0f)
+		CAMERA->pitch = 89.0f;
+	if(CAMERA->pitch < -89.0f)
+		CAMERA->pitch = -89.0f;
+}
+
 int	main(void)
 {
 	try {
 		Window	window;
 		WINDOW = &window;
 	
+		// glfwSetInputMode(WINDOW->getWindowData(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+		// glfwSetCursorPosCallback(WINDOW->getWindowData(), move_mouse_hook);
+
 		Camera	camera;
 		CAMERA = &camera;		
 
@@ -247,7 +291,9 @@ int	main(void)
 
 		initBuffers();
 		
-		glfwSwapInterval(0);
+		glEnable(GL_PROGRAM_POINT_SIZE);
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 		while (WINDOW->up())
 		{

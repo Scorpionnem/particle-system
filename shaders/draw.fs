@@ -3,16 +3,20 @@
 out vec4 FragColor;
 in vec3 FragPos;
 
+uniform vec3 attractorPos;
+
+uniform vec3 NEAR_COLOR;
+uniform vec3 FAR_COLOR;
+
+uniform float GRADIENT_SCALE;
+
 void main() {
-    float distance = length(FragPos - vec3(0, 0, 0));
+    if( dot(gl_PointCoord - 0.5 , gl_PointCoord - 0.5) > 0.25) 
+        discard;
 
-    // Normalize the distance if needed
-    float normalized = clamp(distance / 250, 0.0, 1.0);
+    float distance = length(FragPos - attractorPos);
 
-    // Example: grayscale color
-    FragColor = vec4(vec3(1 - normalized), 1.0);
+    float normalized = clamp(distance / GRADIENT_SCALE, 0.0, 1.0);
 
-    // vec3 nearColor = vec3(0.2, 0.8, 1.0);
-    // vec3 farColor  = vec3(1.0, 0.1, 0.1);
-    // FragColor = vec4(mix(nearColor, farColor, normalized), 1.0);
+    FragColor = vec4(mix(NEAR_COLOR, FAR_COLOR, normalized), 1.0);
 }
