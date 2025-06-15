@@ -6,7 +6,7 @@
 /*   By: mbatty <mbatty@student.42angouleme.fr>     +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/05/03 12:16:19 by mbatty            #+#    #+#             */
-/*   Updated: 2025/05/28 16:43:20 by mbatty           ###   ########.fr       */
+/*   Updated: 2025/06/12 23:43:10 by mbatty           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -37,8 +37,8 @@ class Shader
 		void	setBool(const std::string &name, bool value) const;
 		void	setInt(const std::string &name, int value) const;
 		void	setFloat(const std::string &name, float value) const;
-		void	setMat4(const std::string &name, mat4 value) const;
-		void	setVec3(const std::string &name, vec3 value) const;
+		void	setMat4(const std::string &name, glm::mat4 value) const;
+		void	setVec3(const std::string &name, glm::vec3 value) const;
 };
 
 #endif

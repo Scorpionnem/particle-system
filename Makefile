@@ -1,7 +1,7 @@
 NAME := particle-system
 
 OBJ_DIR := ./obj/
-INCLUDE_DIRS := ./includes/ ./GLFW/include/GLFW/ ./includes/glad/. ./includes/render ./src/
+INCLUDE_DIRS := ./includes/ ./GLFW/include/GLFW/ ./includes/glad/. ./includes/render ./src/ ./glm/glm/ ./glm/glm/gtc/
 
 GLFWARCHIVE = GLFW/build/src/libglfw3.a
 
@@ -18,14 +18,13 @@ OBJECTS = $(SOURCES:.cpp=.o)
 CPP_FILES :=	main \
 				glad/glad \
 				Window \
-				vec3 \
-				mat4 \
 				Camera \
 				Shader \
 				Texture \
 				Font \
 				UIElement \
-				InterfaceManager
+				InterfaceManager \
+				Interfaces/main
 
 CPP_FILES := $(addsuffix .cpp, $(CPP_FILES))
 
@@ -38,7 +37,7 @@ CFLAGS = -MP -MMD -Wall -Wextra -Werror -g
 
 GLAD_PATH = libs/glad
 
-all: glfw glad $(NAME)
+all: glfw glad glm $(NAME)
 
 run: all
 	@./$(NAME)
@@ -80,6 +79,15 @@ glad:
 		rm -rf glad; \
 	fi
 
+glm:
+	@if ls | grep -q "glm"; then \
+		echo "\033[32;1;4mGLM Found\033[0m"; \
+	else \
+		echo "\033[31;1;4mGLM Not Found\033[0m"; \
+		echo "\033[31;1mCloning GLM from github\033[0m"; \
+		git clone https://github.com/g-truc/glm.git glm; \
+	fi
+
 $(OBJECTS): $(OBJ_DIR)%.o : $(SOURCE_DIR)%.cpp
 	@c++ $(CFLAGS) $(INCLUDE_DIRS) -c $< -o $@
 
@@ -108,6 +116,6 @@ dclean: fclean
 
 re: fclean all
 
-.PHONY: all clean fclean dclean re GLFW glad run
+.PHONY: all clean fclean dclean re GLFW glad run glm
 
 -include $(DEPS)

@@ -6,7 +6,7 @@
 /*   By: mbatty <mbatty@student.42angouleme.fr>     +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/04/10 13:33:29 by mbatty            #+#    #+#             */
-/*   Updated: 2025/06/12 15:08:46 by mbatty           ###   ########.fr       */
+/*   Updated: 2025/06/15 14:25:11 by mbatty           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -39,14 +39,44 @@ Window				*WINDOW;
 ComputeShader	*COMPUTE_SHADER;
 ComputeShader	*LOAD_SHADER;
 
+bool			CAMERA_3D = false;
+
+float lastX = SCREEN_WIDTH / 2;
+float lastY = SCREEN_HEIGHT / 2;
+
+bool	TEXTBOX_FOCUSED = false;
+
+void	keyboard_input(GLFWwindow *window, unsigned int key)
+{
+	(void)window;
+	INTERFACES_MANAGER->current->charInput(key);
+}
+
 void	key_hook(GLFWwindow *window, int key, int scancode, int action, int mods)
 {
 	(void)window;(void)key;(void)scancode;(void)action;(void)mods;
+
+	if (action == GLFW_PRESS || action == GLFW_REPEAT)
+		INTERFACES_MANAGER->current->specialInput(key);
+
+	if (TEXTBOX_FOCUSED)
+		return ;
 
 	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
 		glfwSetWindowShouldClose(window, true);
 	if (key == GLFW_KEY_P && action == GLFW_PRESS)
 		PAUSED = !PAUSED;
+	if (key == GLFW_KEY_C && action == GLFW_PRESS)
+	{
+		glfwSetCursorPos(window, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2);
+		lastX = SCREEN_WIDTH / 2;
+		lastY = SCREEN_HEIGHT / 2;
+		CAMERA_3D = !CAMERA_3D;
+		if (CAMERA_3D == false)
+			glfwSetInputMode(WINDOW->getWindowData(), GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+		else
+			glfwSetInputMode(WINDOW->getWindowData(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+	}
 }
 
 void	build(ShaderManager *shader)
@@ -77,8 +107,8 @@ void	drawUI()
 	if ((int)WINDOW->_lastFrame != (int)WINDOW->_currentFrame)
 		fps = getFPSString();
 	FONT->putString(fps, *SHADER_MANAGER->get("text"),
-		vec2(SCREEN_WIDTH - fps.length() * 15, 15 * 0),
-		vec2(fps.length() * 15, 15));
+		glm::vec2((SCREEN_WIDTH / 2) - (fps.length() * 15) / 2, 0),
+		glm::vec2(fps.length() * 15, 15));
 
 	glEnable(GL_DEPTH_TEST);
 }
@@ -90,7 +120,7 @@ void	update(ShaderManager *shaders)
 	textShader->setFloat("time", glfwGetTime());
 	textShader->setFloat("SCREEN_WIDTH", SCREEN_WIDTH);
 	textShader->setFloat("SCREEN_HEIGHT", SCREEN_HEIGHT);
-	textShader->setVec3("color", vec3(0.5, 1, 0.5));
+	textShader->setVec3("color", glm::vec3(0.5, 1, 0.5));
 	textShader->setBool("rainbow", false);
 }
 
@@ -105,9 +135,9 @@ void	loadParticles(unsigned int count)
 	glUseProgram(LOAD_SHADER->ID);
 	glUniform1f(glGetUniformLocation(LOAD_SHADER->ID, "oldParticleCount"), PARTICLES_COUNT);
 	
-	PARTICLES_COUNT += count;
+	PARTICLES_COUNT = count;
 	
-	unsigned int size = PARTICLES_COUNT * sizeof(vec4);
+	unsigned int size = PARTICLES_COUNT * sizeof(glm::vec4);
 	
 	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, posBuf);
 	glBufferData(GL_SHADER_STORAGE_BUFFER, size, NULL, GL_DYNAMIC_DRAW);
@@ -125,7 +155,7 @@ void	initBuffers()
 	glCreateBuffers(1, &posBuf);
 	glCreateBuffers(1, &velBuf);
 
-	unsigned int size = PARTICLES_COUNT * sizeof(vec4);
+	unsigned int size = PARTICLES_COUNT * sizeof(glm::vec4);
 
 	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, posBuf);
 	glBufferData(GL_SHADER_STORAGE_BUFFER, size, NULL, GL_DYNAMIC_DRAW);
@@ -145,19 +175,46 @@ void	initBuffers()
 	loadParticles(1000000);
 }
 
-vec3	attractorPos(0, 0, 0);
+glm::vec3	attractorPos(0, 0, 0);
 
-vec3	NEAR_COLOR(0.0, 1.0, 0.0);
-vec3	FAR_COLOR(1.0, 0.0, 0.0);
+glm::vec3	NEAR_COLOR(1.0, 1.0, 0.0);
+glm::vec3	FAR_COLOR(1.0, 0.0, 0.0);
 
 float	MAX_PARTICLE_SIZE = 30.0;
 
 float	GRADIENT_SCALE = 50.0;
 
+glm::vec3 screenToWorldRay(float mouseX, float mouseY, int screenWidth, int screenHeight, const glm::mat4& projection, const glm::mat4& view)
+{
+    float x = (2.0f * mouseX) / screenWidth - 1.0f;
+    float y = 1.0f - (2.0f * mouseY) / screenHeight;
+    glm::vec4 rayClip = glm::vec4(x, y, -1.0, 1.0);
+
+    glm::vec4 rayEye = glm::inverse(projection) * rayClip;
+    rayEye = glm::vec4(rayEye.x, rayEye.y, -1.0, 0.0);
+
+    glm::vec3 rayWorld = glm::normalize(glm::vec3(glm::inverse(view) * rayEye));
+    return (rayWorld);
+}
+
+glm::vec3 getGravityCenterFromMouseFixedDepth(float mouseX, float mouseY, int screenWidth, int screenHeight, const glm::mat4& projection, const glm::mat4& view, const glm::vec3& camPos, float depth)
+{
+    glm::vec3 rayDir = screenToWorldRay(mouseX, mouseY, screenWidth, screenHeight, projection, view);
+    return (camPos + rayDir * depth);
+}
+
 void	render()
 {
-	if (!PAUSED)
-		attractorPos = vec3(std::sin(glfwGetTime()) * 10, 0, std::cos(glfwGetTime()) * 10);
+	bool	mouseClicked;
+
+	mouseClicked = glfwGetMouseButton(WINDOW->getWindowData(), GLFW_MOUSE_BUTTON_1);
+
+	if (mouseClicked && !CAMERA_3D)
+	{
+		double mx, my;
+		glfwGetCursorPos(WINDOW->getWindowData(), &mx, &my);
+		attractorPos = getGravityCenterFromMouseFixedDepth( mx, my, SCREEN_WIDTH, SCREEN_HEIGHT, glm::perspective(glm::radians(FOV), SCREEN_WIDTH / SCREEN_HEIGHT, 0.1f, RENDER_DISTANCE), CAMERA->getViewMatrix(), CAMERA->pos, 100.0f );
+	}
 
 	glUseProgram(SHADER_MANAGER->get("draw")->ID);	
 	SHADER_MANAGER->get("draw")->setVec3("attractorPos", attractorPos);
@@ -169,9 +226,10 @@ void	render()
 	
 	glUseProgram(COMPUTE_SHADER->ID);
 	glUniform1f(glGetUniformLocation(COMPUTE_SHADER->ID, "time"), glfwGetTime());
+	glUniform1i(glGetUniformLocation(COMPUTE_SHADER->ID, "mouseClicked"), mouseClicked);
 	glUniform3fv(glGetUniformLocation(COMPUTE_SHADER->ID, "attractorPos"), 1, &attractorPos.x);
 	glUniform1f(glGetUniformLocation(COMPUTE_SHADER->ID, "deltaTime"), WINDOW->getDeltaTime());
-	
+
 	if (!PAUSED)
 	{
 		glDispatchCompute(PARTICLES_COUNT, 1, 1);
@@ -189,14 +247,14 @@ void	render()
 
 void	frame_key_hook(Window &window)
 {
+	if (!CAMERA_3D || TEXTBOX_FOCUSED)
+		return ;
+		
 	float cameraSpeed = 15.0f * window.getDeltaTime();
 	float	speedBoost = 1.0f;
 
 	if (glfwGetKey(window.getWindowData(), GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS)
-	{
-		// loadParticles(100);
 		speedBoost = 20.0f;
-	}
 	
 	if (glfwGetKey(window.getWindowData(), GLFW_KEY_W) == GLFW_PRESS)
 		CAMERA->pos = CAMERA->pos + CAMERA->front * (cameraSpeed * speedBoost);
@@ -208,9 +266,9 @@ void	frame_key_hook(Window &window)
 		CAMERA->pos = CAMERA->pos - CAMERA->up * (cameraSpeed * speedBoost);
 		
 	if (glfwGetKey(window.getWindowData(), GLFW_KEY_A) == GLFW_PRESS)
-		CAMERA->pos = CAMERA->pos -  CAMERA->front.cross(CAMERA->up).normalize() * (cameraSpeed * speedBoost);
+		CAMERA->pos = CAMERA->pos - glm::cross(normalize(CAMERA->front), normalize(CAMERA->up)) * (cameraSpeed * speedBoost);
 	if (glfwGetKey(window.getWindowData(), GLFW_KEY_D) == GLFW_PRESS)
-		CAMERA->pos = CAMERA->pos + CAMERA->front.cross(CAMERA->up).normalize() * (cameraSpeed * speedBoost);
+		CAMERA->pos = CAMERA->pos + glm::cross(normalize(CAMERA->front), normalize(CAMERA->up)) * (cameraSpeed * speedBoost);
 		
 	if (glfwGetKey(window.getWindowData(), GLFW_KEY_LEFT) == GLFW_PRESS)
 		CAMERA->yaw -= (10.0f * cameraSpeed) * 1.f;
@@ -229,15 +287,14 @@ void	frame_key_hook(Window &window)
 
 void	move_mouse_hook(GLFWwindow* window, double xpos, double ypos)
 {
+	if (!CAMERA_3D)
+		return ;
 	(void)window;
 	(void)xpos;
 	(void)ypos;
-	
-	static float lastX = SCREEN_WIDTH / 2;
-	static float lastY = SCREEN_HEIGHT / 2;
 
 	float xoffset = xpos - lastX;
-	float yoffset = lastY - ypos; // reversed: y ranges bottom to top
+	float yoffset = lastY - ypos;
 	
 	lastX = xpos;
 	lastY = ypos;
@@ -262,8 +319,8 @@ int	main(void)
 		Window	window;
 		WINDOW = &window;
 	
-		// glfwSetInputMode(WINDOW->getWindowData(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-		// glfwSetCursorPosCallback(WINDOW->getWindowData(), move_mouse_hook);
+		glfwSetInputMode(WINDOW->getWindowData(), GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+		glfwSetCursorPosCallback(WINDOW->getWindowData(), move_mouse_hook);
 
 		Camera	camera;
 		CAMERA = &camera;		
@@ -294,6 +351,8 @@ int	main(void)
 		glEnable(GL_PROGRAM_POINT_SIZE);
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+		CAMERA->pos.z = 50;
 
 		while (WINDOW->up())
 		{

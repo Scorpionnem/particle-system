@@ -6,7 +6,7 @@
 /*   By: mbatty <mbatty@student.42angouleme.fr>     +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/06/08 12:42:04 by mbatty            #+#    #+#             */
-/*   Updated: 2025/06/10 22:38:17 by mbatty           ###   ########.fr       */
+/*   Updated: 2025/06/13 16:25:29 by mbatty           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -60,11 +60,11 @@ class	UIElement
 
 			Updates button's variables like its current used texture (normal/pressed)
 		*/
-        virtual void	update(vec2 mousePos, bool mousePressed) = 0;
+        virtual void	update(glm::vec2 mousePos, bool mousePressed) = 0;
 		/*
 			Returns wether the mouse is in the button or not
 		*/
-		bool	isInside(vec2 buttonPos, vec2 size, vec2 mousePos)
+		bool	isInside(glm::vec2 buttonPos, glm::vec2 size, glm::vec2 mousePos)
 		{
 			return mousePos.x >= buttonPos.x && mousePos.x <= buttonPos.x + size.x && mousePos.y >= buttonPos.y && mousePos.y <= buttonPos.y + size.y;
 		}
@@ -161,9 +161,9 @@ class	UIElement
 			}
 		}
 
-		vec2						offset;
-		vec2						pos;
-		vec2						size;
+		glm::vec2						offset;
+		glm::vec2						pos;
+		glm::vec2						size;
 		UIAnchor					anchor = UIAnchor::NONE;
 };
 
@@ -187,7 +187,7 @@ class	Button : public UIElement
 			@param	onClick     function to be called when button is clicked
 			@param	clickData   Data passed to the onClick function
 		*/
-		Button(std::string label, vec2 pos, vec2 size, std::function<void(void*)> onClick, void *clickData)
+		Button(std::string label, glm::vec2 pos, glm::vec2 size, std::function<void(void*)> onClick, void *clickData)
 		{
 			this->label = label;
 			this->pos = pos;
@@ -210,11 +210,11 @@ class	Button : public UIElement
 			@param	onClick     function to be called when button is clicked, NULL to do nothing
 			@param	clickData   Data passed to the onClick function
 		*/
-		Button(UIAnchor anchor, std::string label, vec2 offset, vec2 size, std::function<void(void*)> onClick, void *clickData)
+		Button(UIAnchor anchor, std::string label, glm::vec2 offset, glm::vec2 size, std::function<void(void*)> onClick, void *clickData)
 		{
 			this->label = label;
 			this->offset = offset;
-			this->pos = vec2(0);
+			this->pos = glm::vec2(0);
 			this->size = size;
 			this->onClick = onClick;
 			this->clickData = clickData;
@@ -254,9 +254,9 @@ class	Button : public UIElement
 			
 			initButtonQuad();
 			
-			mat4 model = translate(mat4(1.0f), vec3(this->pos.x, this->pos.y, 0.0f));
-			model = scale(model, vec3(this->size.x, this->size.y, 1.0f));
-			mat4 projection = ortho(0.0f, SCREEN_WIDTH, SCREEN_HEIGHT, 0.0f);
+			glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(this->pos.x, this->pos.y, 0.0f));
+			model = glm::scale(model, glm::vec3(this->size.x, this->size.y, 1.0f));
+			glm::mat4 projection = glm::ortho(0.0f, SCREEN_WIDTH, SCREEN_HEIGHT, 0.0f);
 
 			this->buttonShader->use();
 			this->buttonShader->setMat4("model", model);
@@ -267,9 +267,9 @@ class	Button : public UIElement
 			glBindVertexArray(quadVAO);
 			glDrawArrays(GL_TRIANGLES, 0, 6);
 			glBindVertexArray(0);
-			font->putString(this->label, *this->fontShader, vec2(this->pos.x, this->pos.y - this->size.y / 8), this->size);
+			font->putString(this->label, *this->fontShader, glm::vec2(this->pos.x, this->pos.y - this->size.y / 8), this->size);
 		}
-		void	update(vec2 mousePos, bool mousePressed)
+		void	update(glm::vec2 mousePos, bool mousePressed)
 		{
 			bool inside = isInside(this->pos, this->size, mousePos);
 
@@ -324,7 +324,7 @@ class	Slider : public UIElement
 	public:
 		/*
 		*/
-		Slider(std::string label, vec2 pos, vec2 size, std::function<void(float, void*)> onChange, void *clickData)
+		Slider(std::string label, glm::vec2 pos, glm::vec2 size, std::function<void(float, void*)> onChange, void *clickData)
 		{
 			this->label = label;
 			this->pos = pos;
@@ -336,11 +336,11 @@ class	Slider : public UIElement
 		}
 		/*
 		*/
-		Slider(UIAnchor anchor, std::string label, vec2 offset, vec2 size, std::function<void(float, void*)> onChange, void *clickData)
+		Slider(UIAnchor anchor, std::string label, glm::vec2 offset, glm::vec2 size, std::function<void(float, void*)> onChange, void *clickData)
 		{
 			this->label = label;
 			this->offset = offset;
-			this->pos = vec2(0);
+			this->pos = glm::vec2(0);
 			this->size = size;
 			this->onChange = onChange;
 			this->clickData = clickData;
@@ -396,13 +396,13 @@ class	Slider : public UIElement
 
 			initButtonQuad();
 
-			mat4 model = translate(mat4(1.0f), vec3(this->pos.x, this->pos.y, 0.0f));
-			model = scale(model, vec3(this->size.x, this->size.y, 1.0f));
+			glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(this->pos.x, this->pos.y, 0.0f));
+			model = glm::scale(model, glm::vec3(this->size.x, this->size.y, 1.0f));
 
-			mat4 sliderModel = translate(mat4(1.0f), vec3(this->sliderPos.x, this->sliderPos.y, 0.0f));
-			sliderModel = scale(sliderModel, vec3(this->sliderWidth, this->size.y, 1.0f));
+			glm::mat4 sliderModel = glm::translate(glm::mat4(1.0f), glm::vec3(this->sliderPos.x, this->sliderPos.y, 0.0f));
+			sliderModel = glm::scale(sliderModel, glm::vec3(this->sliderWidth, this->size.y, 1.0f));
 
-			mat4 projection = ortho(0.0f, SCREEN_WIDTH, SCREEN_HEIGHT, 0.0f);
+			glm::mat4 projection = glm::ortho(0.0f, SCREEN_WIDTH, SCREEN_HEIGHT, 0.0f);
 
 			this->buttonShader->use();
 			this->buttonShader->setMat4("projection", projection);
@@ -418,9 +418,9 @@ class	Slider : public UIElement
 			glDrawArrays(GL_TRIANGLES, 0, 6);
 			
 			glBindVertexArray(0);
-			font->putString(this->label, *this->fontShader, vec2(this->pos.x, this->pos.y - this->size.y / 8), this->size);
+			font->putString(this->label, *this->fontShader, glm::vec2(this->pos.x, this->pos.y - this->size.y / 8), this->size);
 		}
-		void	update(vec2 mousePos, bool mousePressed)
+		void	update(glm::vec2 mousePos, bool mousePressed)
 		{
 			if (this->anchor != NONE)
 			{
@@ -430,7 +430,7 @@ class	Slider : public UIElement
 			
 			float	minCenter = pos.x + sliderWidth * 0.5f;
     		float	maxCenter = pos.x + this->size.x - sliderWidth * 0.5f;
-			bool	insideSlider = isInside(this->sliderPos, vec2(sliderWidth, this->size.y), mousePos);
+			bool	insideSlider = isInside(this->sliderPos, glm::vec2(sliderWidth, this->size.y), mousePos);
 			bool	insideButton = isInside(this->pos, size, mousePos);
 			float	previousValue = value;
 
@@ -451,11 +451,11 @@ class	Slider : public UIElement
 			if (!mousePressed)
 				this->dragging = false;
 
-			sliderPos.x = clamp(sliderPos.x, pos.x, pos.x + size.x - (sliderWidth));
+			sliderPos.x = glm::clamp(sliderPos.x, pos.x, pos.x + size.x - (sliderWidth));
 			this->previousMousePressed = mousePressed;
 			float sliderCenter = sliderPos.x + (sliderWidth / 2);
     		float normalizedValue = (sliderCenter - minCenter) / (maxCenter - minCenter);
-    		normalizedValue = clamp(normalizedValue, 0.0f, 1.0f);
+    		normalizedValue = glm::clamp(normalizedValue, 0.0f, 1.0f);
             
     		value = normalizedValue;
 			if (value != previousValue && onChange)
@@ -463,7 +463,7 @@ class	Slider : public UIElement
 		}
 		void    setSlider(float value)
 		{
-			value = clamp(value, 0.0f, 1.0f);
+			value = glm::clamp(value, 0.0f, 1.0f);
 			this->value = value;
 		
 			float minCenter = pos.x + (sliderWidth / 2);
@@ -481,7 +481,7 @@ class	Slider : public UIElement
 		std::function<void(float, void*)>	onChange = NULL;
 		void								*clickData = NULL;
 
-		vec2						sliderPos;
+		glm::vec2						sliderPos;
 		float						sliderWidth = 30;
 		float						value = 0;
 		std::string					label;
@@ -505,11 +505,11 @@ class	Text : public UIElement
 
 		}
 		~Text(){}
-		Text(UIAnchor anchor, std::string label, vec2 offset, vec2 size)
+		Text(UIAnchor anchor, std::string label, glm::vec2 offset, glm::vec2 size)
 		{
 			this->label = label;
 			this->offset = offset;
-			this->pos = vec2(0);
+			this->pos = glm::vec2(0);
 			this->size = size;
 			this->anchor = anchor;
 
@@ -525,9 +525,9 @@ class	Text : public UIElement
 			if (!this->font || !this->fontShader)
 				return ;
 
-			font->putString(this->label, *this->fontShader, vec2(this->pos.x, this->pos.y - this->size.y / 8), this->size);
+			font->putString(this->label, *this->fontShader, glm::vec2(this->pos.x, this->pos.y - this->size.y / 8), this->size);
 		}
-		void	update(vec2 mousePos, bool mousePressed)
+		void	update(glm::vec2 mousePos, bool mousePressed)
 		{
 			(void)mousePos;(void)mousePressed;
 			if (this->anchor != NONE)
@@ -547,10 +547,10 @@ class	Image : public UIElement
 
 		}
 		~Image(){}
-		Image(UIAnchor anchor, Texture *texture, vec2 offset, vec2 size)
+		Image(UIAnchor anchor, Texture *texture, glm::vec2 offset, glm::vec2 size)
 		{
 			this->offset = offset;
-			this->pos = vec2(0);
+			this->pos = glm::vec2(0);
 			this->size = size;
 			this->anchor = anchor;
 			this->texture = texture;
@@ -570,10 +570,10 @@ class	Image : public UIElement
 
 			initButtonQuad();
 
-			mat4 model = translate(mat4(1.0f), vec3(this->pos.x, this->pos.y, 0.0f));
-			model = scale(model, vec3(this->size.x, this->size.y, 1.0f));
+			glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(this->pos.x, this->pos.y, 0.0f));
+			model = glm::scale(model, glm::vec3(this->size.x, this->size.y, 1.0f));
 
-			mat4 projection = ortho(0.0f, SCREEN_WIDTH, SCREEN_HEIGHT, 0.0f);
+			glm::mat4 projection = glm::ortho(0.0f, SCREEN_WIDTH, SCREEN_HEIGHT, 0.0f);
 
 			this->buttonShader->use();
 			this->buttonShader->setMat4("projection", projection);
@@ -583,7 +583,7 @@ class	Image : public UIElement
 			this->buttonShader->setMat4("model", model);
 			glDrawArrays(GL_TRIANGLES, 0, 6);
 		}
-		void	update(vec2 mousePos, bool mousePressed)
+		void	update(glm::vec2 mousePos, bool mousePressed)
 		{
 			(void)mousePos;(void)mousePressed;
 			if (this->anchor != NONE)
@@ -591,6 +591,141 @@ class	Image : public UIElement
 		}
 		Shader						*buttonShader = NULL;
 		Texture						*texture = NULL;
+};
+
+class	TextBox : public UIElement
+{
+	public:
+		TextBox(UIAnchor anchor, std::string display, glm::vec2 offset, glm::vec2 size, std::function<void(std::string &)> onConfirm)
+		{
+			this->offset = offset;
+			this->pos = glm::vec2(0);
+			this->size = size;
+			this->onConfirm = onConfirm;
+			this->anchor = anchor;
+			this->display = display;
+
+			loadDefaultAssets();
+		}
+		~TextBox(){}
+		void	loadDefaultAssets()
+		{
+			this->texture = TEXTURE_MANAGER->get(DEFAULT_BUTTON_TEXTURE);
+			this->clickTexture = TEXTURE_MANAGER->get(DEFAULT_BUTTON_CLICK_TEXTURE);
+
+			this->fontShader = SHADER_MANAGER->get("text");
+			this->buttonShader = SHADER_MANAGER->get("gui");
+			this->font = FONT;
+		}
+		// Sets custom button assets, if argument is NULL, asset wont be set
+		void	setAssets(Texture *texture, Texture *clickTexture, Shader *buttonShader, Shader *fontShader, Font *font)
+		{
+			if (texture)
+				this->texture = texture;
+			if (clickTexture)
+				this->clickTexture = clickTexture;
+			if (buttonShader)
+				this->buttonShader = buttonShader;
+			if (fontShader)
+				this->fontShader = fontShader;
+			if (font)
+				this->font = font;
+		}
+		
+		void	draw()
+		{
+			if (!this->buttonShader || !this->currentTexture)
+				return ;
+			
+			initButtonQuad();
+			
+			glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(this->pos.x, this->pos.y, 0.0f));
+			model = glm::scale(model, glm::vec3(this->size.x, this->size.y, 1.0f));
+			glm::mat4 projection = glm::ortho(0.0f, SCREEN_WIDTH, SCREEN_HEIGHT, 0.0f);
+
+			this->buttonShader->use();
+			this->buttonShader->setMat4("model", model);
+			this->buttonShader->setMat4("projection", projection);
+			
+			this->currentTexture->use();
+
+			glBindVertexArray(quadVAO);
+			glDrawArrays(GL_TRIANGLES, 0, 6);
+			glBindVertexArray(0);
+			if (!focused && !input.size())
+				font->putString(this->display, *this->fontShader, glm::vec2(this->pos.x, this->pos.y - this->size.y / 8), this->size);
+			else if (!focused)
+				font->putString(this->input, *this->fontShader, glm::vec2(this->pos.x, this->pos.y - this->size.y / 8), this->size);
+			else
+				font->putString(this->input + "_", *this->fontShader, glm::vec2(this->pos.x, this->pos.y - this->size.y / 8), this->size);
+		}
+		void	update(glm::vec2 mousePos, bool mousePressed)
+		{
+			bool inside = isInside(this->pos, this->size, mousePos);
+
+			this->currentTexture = this->texture;
+			
+			if (this->anchor != NONE)
+				anchorPos();
+
+			if (mousePressed && !this->previousMousePressed)
+			{
+    			this->wasPressedInside = inside;
+			}
+
+    		if (mousePressed)
+    		{
+				if (inside && this->wasPressedInside)
+					this->currentTexture = this->clickTexture;
+				if (!inside)
+					focused = false;
+    		}
+    		else
+    		{
+    			if (this->wasPressedInside && inside)
+    				focused = true;
+    			this->wasPressedInside = false;
+    		}
+
+			this->previousMousePressed = mousePressed;
+		}
+		void	onCharInput(char c)
+		{
+			if (!focused)
+				return ;
+			input += c;
+		}
+		void	onSpecialInput(int key)
+		{
+			if (!focused)
+				return ;
+			if (input.size() && key == GLFW_KEY_BACKSPACE)
+				input.pop_back();
+			if (key == GLFW_KEY_ENTER)
+			{
+				focused = false;
+				if (onConfirm)
+					onConfirm(input);
+			}
+		}
+
+		bool						wasPressedInside = false;
+		bool						previousMousePressed = false;
+
+		std::function<void(std::string &)>	onConfirm = NULL;
+		std::string							input;
+		bool								focused = false;
+
+		std::string							display;
+
+		Texture						*texture = NULL;
+		Texture						*clickTexture = NULL;
+		Texture						*currentTexture = NULL;
+
+		Shader						*buttonShader = NULL;
+		Shader						*fontShader = NULL;
+		
+		Font						*font = NULL;
 };
 
 #endif

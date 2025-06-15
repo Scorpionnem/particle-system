@@ -6,7 +6,7 @@
 /*   By: mbatty <mbatty@student.42angouleme.fr>     +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/05/21 14:45:03 by mbatty            #+#    #+#             */
-/*   Updated: 2025/06/10 22:33:30 by mbatty           ###   ########.fr       */
+/*   Updated: 2025/06/12 23:44:01 by mbatty           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -30,8 +30,8 @@ class	Font
 		Texture	&operator[](char c);
 		Texture	&getChar(char c);
 		void	initFontModel();
-		void    putChar(char c, Shader &shader, vec2 pos, vec2 size);
-		void	putString(std::string str, Shader &shader, vec2 pos, vec2 size);
+		void    putChar(char c, Shader &shader, glm::vec2 pos, glm::vec2 size);
+		void	putString(std::string str, Shader &shader, glm::vec2 pos, glm::vec2 size);
 
 		std::array<Texture, 128> font;	
 };

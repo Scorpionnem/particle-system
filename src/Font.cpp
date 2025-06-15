@@ -6,7 +6,7 @@
 /*   By: mbatty <mbatty@student.42angouleme.fr>     +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/05/21 14:48:45 by mbatty            #+#    #+#             */
-/*   Updated: 2025/06/03 11:36:48 by mbatty           ###   ########.fr       */
+/*   Updated: 2025/06/12 23:58:26 by mbatty           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -60,7 +60,7 @@ Texture	&Font::getChar(char c)
 	return (font[c]);
 }
 
-void    Font::putChar(char c, Shader &shader, vec2 pos, vec2 size)
+void    Font::putChar(char c, Shader &shader, glm::vec2 pos, glm::vec2 size)
 {
     if (c == ' ')
         return ;
@@ -68,9 +68,9 @@ void    Font::putChar(char c, Shader &shader, vec2 pos, vec2 size)
     shader.use();
     getChar(c).use();
     
-    mat4 model = translate(mat4(1.0f), vec3(pos.x, pos.y, 0.0f));
-    model = scale(model, vec3(size.x, size.y, 1.0f));
-    mat4 projection = ortho(0.0f, SCREEN_WIDTH, SCREEN_HEIGHT, 0.0f);
+    glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(pos.x, pos.y, 0.0f));
+    model = glm::scale(model, glm::vec3(size.x, size.y, 1.0f));
+    glm::mat4 projection = glm::ortho(0.0f, SCREEN_WIDTH, SCREEN_HEIGHT, 0.0f);
     
     shader.setMat4("projection", projection);
     shader.setMat4("model", model);
@@ -80,13 +80,13 @@ void    Font::putChar(char c, Shader &shader, vec2 pos, vec2 size)
     glBindVertexArray(0);
 }
 
-void	Font::putString(std::string str, Shader &shader, vec2 pos, vec2 size)
+void	Font::putString(std::string str, Shader &shader, glm::vec2 pos, glm::vec2 size)
 {
 	float	offset = size.x / str.size();
 	float	charPos = pos.x;
 	for (std::string::iterator it = str.begin(); it != str.end(); it++)
 	{
-		putChar(*it, shader, vec2(charPos, pos.y), vec2(offset, size.y));
+		putChar(*it, shader, glm::vec2(charPos, pos.y), glm::vec2(offset, size.y));
 		charPos += offset;
 	}
 }

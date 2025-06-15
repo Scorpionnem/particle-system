@@ -15,7 +15,6 @@ void main() {
         discard;
 
     float distance = length(FragPos - attractorPos);
-
     float normalized = clamp(distance / GRADIENT_SCALE, 0.0, 1.0);
 
     FragColor = vec4(mix(NEAR_COLOR, FAR_COLOR, normalized), 1.0);

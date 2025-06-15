@@ -10,36 +10,39 @@ layout(std430, binding = 1) buffer Vel {
 	vec4 velocity[];
 };
 
-uniform float Gravity1 = 1000.0;
-
-const float ParticleMass = 0.1;
-const float ParticleInvMass = 1.0 / ParticleMass;
-
-uniform float MaxDist = 2000.0;
-
-const float DeltaT = 0.0005;
-
+uniform float GravityStrength = 2000.0;
+uniform float deltaTime;
 uniform float time;
-
 uniform vec3 attractorPos;
+uniform bool mouseClicked;
+
+const float Damping = 0.99;
+const float Softening = 2.0;
+
+const vec3 attractorPos2 = vec3(0, cos(time), 0);
+const vec3 attractorPos3 = vec3(30 * cos(time), 0, 30 * sin(time));
 
 void main()
 {
     uint idx = gl_GlobalInvocationID.x;
 
-    vec3 particlePos = position[idx].xyz;
-    vec3 particleVel = velocity[idx].xyz;
+    vec3 pos = position[idx].xyz;
+    vec3 vel = velocity[idx].xyz;
 
-    vec3 d = attractorPos - particlePos;
-    float dist = length(d);
-    vec3 force = (Gravity1 / dist) * normalize(d);
-
-    if (dist > MaxDist)
-        position[idx].xyz = vec3(0);
-    else
+    if (mouseClicked)
     {
-        vec3 a = force;
-        position[idx] = vec4(particlePos + particleVel * DeltaT + 0.5 * a * DeltaT * DeltaT, 1.0);
-        velocity[idx] = vec4(particleVel + a * DeltaT, 0.0);
+        vec3 toAttractor = attractorPos - pos;
+        float dist = length(toAttractor);
+        vec3 dir = normalize(toAttractor);
+        float force = GravityStrength / (dist + Softening);
+        vec3 acceleration = force * dir;
+
+        vel += acceleration * deltaTime;
     }
+
+    vel *= Damping;
+    pos += vel * deltaTime;
+
+    position[idx] = vec4(pos, 1.0);
+    velocity[idx] = vec4(vel, 0.0);
 }
