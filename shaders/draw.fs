@@ -10,10 +10,10 @@ uniform vec3 FAR_COLOR;
 
 uniform float GRADIENT_SCALE;
 
-uniform bool PARTICLE_SHAPE;
+uniform int PARTICLE_SHAPE;
 
 void main() {
-    if (PARTICLE_SHAPE && dot(gl_PointCoord - 0.5 , gl_PointCoord - 0.5) > 0.25) 
+    if (PARTICLE_SHAPE == 1 && dot(gl_PointCoord - 0.5 , gl_PointCoord - 0.5) > 0.25) 
         discard;
 
     float distance = length(FragPos - MAIN_ATTRACTOR);

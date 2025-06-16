@@ -27,15 +27,37 @@ float rand01(uint seed)
 
 vec3 randomCube(uint id)
 {
+    float   cubeSize = 20.0;
+
     return vec3(
-        rand01(id * 3 + 0) * 20.0 - 10.0,
-        rand01(id * 3 + 1) * 20.0 - 10.0,
-        rand01(id * 3 + 2) * 20.0 - 10.0
+        rand01(id * 3 + 0) * cubeSize - (cubeSize / 2),
+        rand01(id * 3 + 1) * cubeSize - (cubeSize / 2),
+        rand01(id * 3 + 2) * cubeSize - (cubeSize / 2)
     );
+}
+
+vec3 randomSphere(uint id)
+{
+    float radius = 10.0;
+
+    float u = rand01(id * 3 + 0) * 2.0 - 1.0;
+    float theta = rand01(id * 3 + 1) * 6.2831853;
+
+    float sqrtOneMinusU2 = sqrt(1.0 - u * u);
+    float x = sqrtOneMinusU2 * cos(theta);
+    float y = sqrtOneMinusU2 * sin(theta);
+    float z = u;
+
+    vec3 dir = vec3(x, y, z);
+
+    float r = pow(rand01(id * 3 + 2), 1.0/3.0) * radius;
+
+    return dir * r;
 }
 
 uniform unsigned int u_Offset;
 uniform unsigned int u_Count;
+uniform bool shape;
 
 void main() {
     uint id = gl_GlobalInvocationID.x;
@@ -44,7 +66,11 @@ void main() {
 
     uint idx = u_Offset + id;
 
-    vec3 pos = randomCube(idx);
+    vec3 pos;
+    if (shape)
+        pos = randomSphere(idx);
+    else
+        pos = randomCube(idx);
 
     position[idx] = vec4(pos, 1.0);
     velocity[idx] = vec4(0.0);
