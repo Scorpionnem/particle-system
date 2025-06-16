@@ -6,7 +6,7 @@
 /*   By: mbatty <mbatty@student.42angouleme.fr>     +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/04/10 13:33:29 by mbatty            #+#    #+#             */
-/*   Updated: 2025/06/16 15:27:36 by mbatty           ###   ########.fr       */
+/*   Updated: 2025/06/16 16:15:56 by mbatty           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -55,6 +55,8 @@ unsigned int USED_PARTICLES_COUNT = 0;
 
 int LOAD_PARTICLES = 1000;
 bool	GRAVITY_CENTER_ACTIVATED = false;
+bool	PARTICLE_SHAPE = true;
+float	MAX_PARTICLE_SIZE = 30.0;
 
 void	keyboard_input(GLFWwindow *window, unsigned int key)
 {
@@ -104,6 +106,15 @@ void	key_hook(GLFWwindow *window, int key, int scancode, int action, int mods)
 	}
 	if (key == GLFW_KEY_G && action == GLFW_PRESS)
 		GRAVITY_CENTER_ACTIVATED = !GRAVITY_CENTER_ACTIVATED;
+	if (key == GLFW_KEY_Q && (action == GLFW_PRESS || action == GLFW_REPEAT))
+	{
+		if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
+			MAX_PARTICLE_SIZE + 10 < 1000 ? MAX_PARTICLE_SIZE += 10 : MAX_PARTICLE_SIZE = 1000;
+		else if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
+			MAX_PARTICLE_SIZE - 10 > 0 ? MAX_PARTICLE_SIZE -= 10 : MAX_PARTICLE_SIZE = 0;
+		else	
+			PARTICLE_SHAPE = !PARTICLE_SHAPE;
+	}
 }
 
 void	build(ShaderManager *shader)
@@ -127,7 +138,6 @@ std::string	getFPSString()
 void	drawUI()
 {
 	glDisable(GL_DEPTH_TEST);
-	// INTERFACES_MANAGER->draw();
 
 	static std::string	fps = "0 fps";
 	std::string			particles_count;
@@ -144,13 +154,6 @@ void	drawUI()
 	FONT->putString(particles_count, *SHADER_MANAGER->get("text"),
 		glm::vec2((SCREEN_WIDTH / 2) - (particles_count.length() * 15) / 2, 16),
 		glm::vec2(particles_count.length() * 15, 15));
-
-	load_particles = std::to_string(LOAD_PARTICLES) + " load particles";
-
-	FONT->putString(load_particles, *SHADER_MANAGER->get("text"),
-		glm::vec2((SCREEN_WIDTH / 2) - (load_particles.length() * 15) / 2, 32),
-		glm::vec2(load_particles.length() * 15, 15));
-
 	
 	glEnable(GL_DEPTH_TEST);
 }
@@ -227,7 +230,6 @@ glm::vec3	MAIN_ATTRACTOR(0, 0, 0);
 glm::vec3	NEAR_COLOR(1.0, 1.0, 0.0);
 glm::vec3	FAR_COLOR(1.0, 0.0, 0.0);
 
-float	MAX_PARTICLE_SIZE = 30.0;
 
 float	GRADIENT_SCALE = 50.0;
 
@@ -270,6 +272,7 @@ void	render()
 	SHADER_MANAGER->get("draw")->setVec3("viewPos", CAMERA->pos);
 	SHADER_MANAGER->get("draw")->setFloat("MAX_PARTICLE_SIZE", MAX_PARTICLE_SIZE);
 	SHADER_MANAGER->get("draw")->setFloat("GRADIENT_SCALE", GRADIENT_SCALE);
+	SHADER_MANAGER->get("draw")->setBool("PARTICLE_SHAPE", PARTICLE_SHAPE);
 
 	glUseProgram(COMPUTE_SHADER->ID);
 	glUniform1f(glGetUniformLocation(COMPUTE_SHADER->ID, "time"), glfwGetTime());
@@ -367,10 +370,13 @@ void	printGuide()
 	<< "L               Load particles\n"
 	<< "Up/Down + L     increase/decrease amount of particles loaded using L\n"
 	<< "C               Toggles camera view\n"
+	<< "WASD            Move camera around\n"
 	<< "Ctrl            Increases camera speed\n"
 	<< "M               Changes color mode\n"
 	<< "G               Toggle gravity center\n"
-	<< "P               Pause the simulation"
+	<< "P               Pause the simulation\n"
+	<< "Q               Changes particle shape\n"
+	<< "Up/Down + Q     increase/decrease size of particles"
 	<< std::endl;
 }
 
