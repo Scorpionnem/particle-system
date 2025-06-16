@@ -6,7 +6,7 @@
 /*   By: mbatty <mbatty@student.42angouleme.fr>     +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/04/10 13:33:29 by mbatty            #+#    #+#             */
-/*   Updated: 2025/06/15 14:25:11 by mbatty           ###   ########.fr       */
+/*   Updated: 2025/06/16 15:27:36 by mbatty           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -46,11 +46,23 @@ float lastY = SCREEN_HEIGHT / 2;
 
 bool	TEXTBOX_FOCUSED = false;
 
+unsigned int	posBuf = 0;
+unsigned int	velBuf = 0;
+unsigned int	posVAO = 0;
+
+unsigned int PARTICLES_CAPACITY = 0;
+unsigned int USED_PARTICLES_COUNT = 0;
+
+int LOAD_PARTICLES = 1000;
+bool	GRAVITY_CENTER_ACTIVATED = false;
+
 void	keyboard_input(GLFWwindow *window, unsigned int key)
 {
 	(void)window;
 	INTERFACES_MANAGER->current->charInput(key);
 }
+
+void loadParticles(unsigned int countToAdd);
 
 void	key_hook(GLFWwindow *window, int key, int scancode, int action, int mods)
 {
@@ -77,6 +89,21 @@ void	key_hook(GLFWwindow *window, int key, int scancode, int action, int mods)
 		else
 			glfwSetInputMode(WINDOW->getWindowData(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 	}
+	if (key == GLFW_KEY_L && (action == GLFW_PRESS || action == GLFW_REPEAT))
+	{
+		if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
+		{
+			LOAD_PARTICLES + 1000 < 10000000 ? LOAD_PARTICLES += 1000 : LOAD_PARTICLES = 10000000;
+		}
+		else if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
+		{
+			LOAD_PARTICLES - 1000 > 0 ? LOAD_PARTICLES -= 1000 : LOAD_PARTICLES = 0;
+		}
+		else
+			loadParticles(LOAD_PARTICLES);
+	}
+	if (key == GLFW_KEY_G && action == GLFW_PRESS)
+		GRAVITY_CENTER_ACTIVATED = !GRAVITY_CENTER_ACTIVATED;
 }
 
 void	build(ShaderManager *shader)
@@ -100,16 +127,31 @@ std::string	getFPSString()
 void	drawUI()
 {
 	glDisable(GL_DEPTH_TEST);
-	INTERFACES_MANAGER->draw();
+	// INTERFACES_MANAGER->draw();
 
-	static std::string	fps;
+	static std::string	fps = "0 fps";
+	std::string			particles_count;
+	std::string			load_particles;
 
 	if ((int)WINDOW->_lastFrame != (int)WINDOW->_currentFrame)
 		fps = getFPSString();
 	FONT->putString(fps, *SHADER_MANAGER->get("text"),
 		glm::vec2((SCREEN_WIDTH / 2) - (fps.length() * 15) / 2, 0),
 		glm::vec2(fps.length() * 15, 15));
+	
+	particles_count = std::to_string(USED_PARTICLES_COUNT) + " particles";
 
+	FONT->putString(particles_count, *SHADER_MANAGER->get("text"),
+		glm::vec2((SCREEN_WIDTH / 2) - (particles_count.length() * 15) / 2, 16),
+		glm::vec2(particles_count.length() * 15, 15));
+
+	load_particles = std::to_string(LOAD_PARTICLES) + " load particles";
+
+	FONT->putString(load_particles, *SHADER_MANAGER->get("text"),
+		glm::vec2((SCREEN_WIDTH / 2) - (load_particles.length() * 15) / 2, 32),
+		glm::vec2(load_particles.length() * 15, 15));
+
+	
 	glEnable(GL_DEPTH_TEST);
 }
 
@@ -124,58 +166,63 @@ void	update(ShaderManager *shaders)
 	textShader->setBool("rainbow", false);
 }
 
-unsigned int	PARTICLES_COUNT = 0;
-
-unsigned int	posBuf = 0;
-unsigned int	velBuf = 0;
-unsigned int	posVAO = 0;
-
-void	loadParticles(unsigned int count)
-{
-	glUseProgram(LOAD_SHADER->ID);
-	glUniform1f(glGetUniformLocation(LOAD_SHADER->ID, "oldParticleCount"), PARTICLES_COUNT);
-	
-	PARTICLES_COUNT = count;
-	
-	unsigned int size = PARTICLES_COUNT * sizeof(glm::vec4);
-	
-	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, posBuf);
-	glBufferData(GL_SHADER_STORAGE_BUFFER, size, NULL, GL_DYNAMIC_DRAW);
-
-	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, velBuf);
-	glBufferData(GL_SHADER_STORAGE_BUFFER, size, NULL, GL_DYNAMIC_DRAW);
-
-	glUseProgram(LOAD_SHADER->ID);
-	glDispatchCompute(PARTICLES_COUNT, 1, 1);
-	glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-}
-
 void	initBuffers()
 {
+	glGenVertexArrays(1, &posVAO);
 	glCreateBuffers(1, &posBuf);
 	glCreateBuffers(1, &velBuf);
-
-	unsigned int size = PARTICLES_COUNT * sizeof(glm::vec4);
-
-	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, posBuf);
-	glBufferData(GL_SHADER_STORAGE_BUFFER, size, NULL, GL_DYNAMIC_DRAW);
-
-	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, velBuf);
-	glBufferData(GL_SHADER_STORAGE_BUFFER, size, NULL, GL_DYNAMIC_DRAW);
-
-	glGenVertexArrays(1, &posVAO);
-	glBindVertexArray(posVAO);
-	
-	glBindBuffer(GL_ARRAY_BUFFER, posBuf);
-	glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, (void*)0);
-	glEnableVertexAttribArray(0);
-
-	glBindVertexArray(0);
-
-	loadParticles(1000000);
 }
 
-glm::vec3	attractorPos(0, 0, 0);
+void reallocBuffer(GLuint &buffer, GLsizeiptr oldSize, GLsizeiptr newSize)
+{
+	GLuint temp;
+	glCreateBuffers(1, &temp);
+
+	glBindBuffer(GL_COPY_READ_BUFFER, buffer);
+	glBindBuffer(GL_COPY_WRITE_BUFFER, temp);
+
+	glBufferData(GL_COPY_WRITE_BUFFER, newSize, NULL, GL_DYNAMIC_DRAW);
+	glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, 0, 0, oldSize);
+
+	glDeleteBuffers(1, &buffer);
+	buffer = temp;
+}
+
+void loadParticles(unsigned int countToAdd)
+{
+	if (USED_PARTICLES_COUNT + countToAdd > 10000000)
+		return ;
+
+	unsigned int newTotal = USED_PARTICLES_COUNT + countToAdd;
+
+	if (newTotal > PARTICLES_CAPACITY)
+	{
+		PARTICLES_CAPACITY = std::max(newTotal, PARTICLES_CAPACITY * 3 / 2 + 1);
+
+		reallocBuffer(posBuf, USED_PARTICLES_COUNT * sizeof(glm::vec4), PARTICLES_CAPACITY * sizeof(glm::vec4));
+		reallocBuffer(velBuf, USED_PARTICLES_COUNT * sizeof(glm::vec4), PARTICLES_CAPACITY * sizeof(glm::vec4));
+		
+		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, posBuf);
+		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, velBuf);
+
+		glBindVertexArray(posVAO);
+		glBindBuffer(GL_ARRAY_BUFFER, posBuf);
+		glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, (void*)0);
+		glEnableVertexAttribArray(0);
+	}
+
+	glUseProgram(LOAD_SHADER->ID);
+	glUniform1ui(glGetUniformLocation(LOAD_SHADER->ID, "u_Offset"), USED_PARTICLES_COUNT);
+	glUniform1ui(glGetUniformLocation(LOAD_SHADER->ID, "u_Count"), countToAdd);
+
+	glUseProgram(LOAD_SHADER->ID);
+	glDispatchCompute(countToAdd, 1, 1);
+	glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+
+	USED_PARTICLES_COUNT = newTotal;
+}
+
+glm::vec3	MAIN_ATTRACTOR(0, 0, 0);
 
 glm::vec3	NEAR_COLOR(1.0, 1.0, 0.0);
 glm::vec3	FAR_COLOR(1.0, 0.0, 0.0);
@@ -209,30 +256,31 @@ void	render()
 
 	mouseClicked = glfwGetMouseButton(WINDOW->getWindowData(), GLFW_MOUSE_BUTTON_1);
 
-	if (mouseClicked && !CAMERA_3D)
+	if (!CAMERA_3D)
 	{
 		double mx, my;
 		glfwGetCursorPos(WINDOW->getWindowData(), &mx, &my);
-		attractorPos = getGravityCenterFromMouseFixedDepth( mx, my, SCREEN_WIDTH, SCREEN_HEIGHT, glm::perspective(glm::radians(FOV), SCREEN_WIDTH / SCREEN_HEIGHT, 0.1f, RENDER_DISTANCE), CAMERA->getViewMatrix(), CAMERA->pos, 100.0f );
+		MAIN_ATTRACTOR = getGravityCenterFromMouseFixedDepth( mx, my, SCREEN_WIDTH, SCREEN_HEIGHT, glm::perspective(glm::radians(FOV), SCREEN_WIDTH / SCREEN_HEIGHT, 0.1f, RENDER_DISTANCE), CAMERA->getViewMatrix(), CAMERA->pos, 100.0f );
 	}
 
-	glUseProgram(SHADER_MANAGER->get("draw")->ID);	
-	SHADER_MANAGER->get("draw")->setVec3("attractorPos", attractorPos);
+	glUseProgram(SHADER_MANAGER->get("draw")->ID);
+	SHADER_MANAGER->get("draw")->setVec3("MAIN_ATTRACTOR", MAIN_ATTRACTOR);
 	SHADER_MANAGER->get("draw")->setVec3("NEAR_COLOR", NEAR_COLOR);
 	SHADER_MANAGER->get("draw")->setVec3("FAR_COLOR", FAR_COLOR);
 	SHADER_MANAGER->get("draw")->setVec3("viewPos", CAMERA->pos);
 	SHADER_MANAGER->get("draw")->setFloat("MAX_PARTICLE_SIZE", MAX_PARTICLE_SIZE);
 	SHADER_MANAGER->get("draw")->setFloat("GRADIENT_SCALE", GRADIENT_SCALE);
-	
+
 	glUseProgram(COMPUTE_SHADER->ID);
 	glUniform1f(glGetUniformLocation(COMPUTE_SHADER->ID, "time"), glfwGetTime());
-	glUniform1i(glGetUniformLocation(COMPUTE_SHADER->ID, "mouseClicked"), mouseClicked);
-	glUniform3fv(glGetUniformLocation(COMPUTE_SHADER->ID, "attractorPos"), 1, &attractorPos.x);
+	glUniform1i(glGetUniformLocation(COMPUTE_SHADER->ID, "mouseClicked"), GRAVITY_CENTER_ACTIVATED);
+	if (mouseClicked)
+		glUniform3fv(glGetUniformLocation(COMPUTE_SHADER->ID, "MAIN_ATTRACTOR"), 1, &MAIN_ATTRACTOR.x);
 	glUniform1f(glGetUniformLocation(COMPUTE_SHADER->ID, "deltaTime"), WINDOW->getDeltaTime());
 
 	if (!PAUSED)
 	{
-		glDispatchCompute(PARTICLES_COUNT, 1, 1);
+		glDispatchCompute(USED_PARTICLES_COUNT, 1, 1);
 	
 		glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 	}
@@ -241,7 +289,7 @@ void	render()
 	CAMERA->setViewMatrix(*particleShader);
 
 	glBindVertexArray(posVAO);
-	glDrawArrays(GL_POINTS, 0, PARTICLES_COUNT);
+	glDrawArrays(GL_POINTS, 0, USED_PARTICLES_COUNT);
 	glBindVertexArray(0);
 }
 
@@ -287,11 +335,9 @@ void	frame_key_hook(Window &window)
 
 void	move_mouse_hook(GLFWwindow* window, double xpos, double ypos)
 {
+	(void)window;
 	if (!CAMERA_3D)
 		return ;
-	(void)window;
-	(void)xpos;
-	(void)ypos;
 
 	float xoffset = xpos - lastX;
 	float yoffset = lastY - ypos;
@@ -313,8 +359,35 @@ void	move_mouse_hook(GLFWwindow* window, double xpos, double ypos)
 		CAMERA->pitch = -89.0f;
 }
 
-int	main(void)
+void	printGuide()
 {
+	std::cout
+	<< "--- particle-system ---\n"
+	<< "Left Click      Sets main gravity center on cursor\n"
+	<< "L               Load particles\n"
+	<< "Up/Down + L     increase/decrease amount of particles loaded using L\n"
+	<< "C               Toggles camera view\n"
+	<< "Ctrl            Increases camera speed\n"
+	<< "M               Changes color mode\n"
+	<< "G               Toggle gravity center\n"
+	<< "P               Pause the simulation"
+	<< std::endl;
+}
+
+int	main(int ac, char **av)
+{
+	if (ac > 2) {
+		std::cout << "Error\nToo many arguments" << std::endl;
+		return (1);
+	}
+	int	count = 0;
+	
+	ac == 2 ? count = std::atoi(av[1]) : count = 100000;
+	if (count > 10000000) {
+		std::cout << "Error\nToo many particles" << std::endl;
+		return (1);
+	}
+	printGuide();
 	try {
 		Window	window;
 		WINDOW = &window;
@@ -344,9 +417,9 @@ int	main(void)
 
 		COMPUTE_SHADER = &computeShader;
 		LOAD_SHADER = &loadShader;
-		(void)computeShader;
 
 		initBuffers();
+		loadParticles(count);
 		
 		glEnable(GL_PROGRAM_POINT_SIZE);
 		glEnable(GL_BLEND);

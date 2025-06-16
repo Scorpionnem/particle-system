@@ -28,21 +28,24 @@ float rand01(uint seed)
 vec3 randomCube(uint id)
 {
     return vec3(
-        rand01(id * 3 + 0) * 20.0 - 1.0,
-        rand01(id * 3 + 1) * 20.0 - 1.0,
-        rand01(id * 3 + 2) * 20.0 - 1.0
+        rand01(id * 3 + 0) * 20.0 - 10.0,
+        rand01(id * 3 + 1) * 20.0 - 10.0,
+        rand01(id * 3 + 2) * 20.0 - 10.0
     );
 }
 
-uniform unsigned int oldParticleCount;
+uniform unsigned int u_Offset;
+uniform unsigned int u_Count;
 
 void main() {
     uint id = gl_GlobalInvocationID.x;
-	if (id <= oldParticleCount)
-		return;
+	if (id >= u_Count)
+        return;
 
-    vec3 pos = randomCube(id);
+    uint idx = u_Offset + id;
 
-    position[id] = vec4(pos, 1.0);
-    velocity[id] = vec4(0.0);
+    vec3 pos = randomCube(idx);
+
+    position[idx] = vec4(pos, 1.0);
+    velocity[idx] = vec4(0.0);
 }

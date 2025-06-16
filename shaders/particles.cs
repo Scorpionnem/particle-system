@@ -13,14 +13,11 @@ layout(std430, binding = 1) buffer Vel {
 uniform float GravityStrength = 2000.0;
 uniform float deltaTime;
 uniform float time;
-uniform vec3 attractorPos;
+uniform vec3 MAIN_ATTRACTOR;
 uniform bool mouseClicked;
 
 const float Damping = 0.99;
 const float Softening = 2.0;
-
-const vec3 attractorPos2 = vec3(0, cos(time), 0);
-const vec3 attractorPos3 = vec3(30 * cos(time), 0, 30 * sin(time));
 
 void main()
 {
@@ -31,7 +28,7 @@ void main()
 
     if (mouseClicked)
     {
-        vec3 toAttractor = attractorPos - pos;
+        vec3 toAttractor = MAIN_ATTRACTOR - pos;
         float dist = length(toAttractor);
         vec3 dir = normalize(toAttractor);
         float force = GravityStrength / (dist + Softening);
