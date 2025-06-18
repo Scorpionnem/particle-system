@@ -30,7 +30,7 @@ void main()
     vec3 vel = velocity[idx].xyz;
     float   lifeTime = velocity[idx].w; // W value represents the lifetime of the particle
 
-    if (lifeTime < 0)
+    if (lifeTime < 0 && lifeTime < 100)
     {
         position[idx] = vec4(0);
         velocity[idx].w = -1;

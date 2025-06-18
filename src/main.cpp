@@ -6,7 +6,7 @@
 /*   By: mbatty <mbatty@student.42angouleme.fr>     +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/04/10 13:33:29 by mbatty            #+#    #+#             */
-/*   Updated: 2025/06/18 20:49:01 by mbatty           ###   ########.fr       */
+/*   Updated: 2025/06/18 23:42:48 by mbatty           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -19,6 +19,7 @@
 #include "Window.hpp"
 #include "ComputeShader.hpp"
 #include "Particles.hpp"
+#include "Texture.hpp"
 
 float	FOV = 65;
 float	SCREEN_WIDTH = 1100;
@@ -368,7 +369,6 @@ void	update()
 	frame++;
 	if (frame >= currentFPS)
 	{
-		MAIN_PARTICLES->compactParticles();
 		for (auto *emitter : EMITTERS)
 			emitter->_particles.compactParticles();
 		frame = 0;
@@ -392,8 +392,8 @@ int	main(int ac, char **av)
 	try {
 		Engine	engine;
 
-		ComputeShader	computeShader("shaders/particles.cs");
 		ComputeShader	loadShader("shaders/load_particles.cs");
+		ComputeShader	computeShader("shaders/particles.cs");
 		ComputeShader	compactShader("shaders/compact.cs");
 		COMPUTE_SHADER = &computeShader;
 		LOAD_SHADER = &loadShader;

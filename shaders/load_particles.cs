@@ -67,6 +67,7 @@ void main() {
         return;
 
     uint idx = u_Offset + id;
+    float   lifeTime = 100;
 
     vec3 pos;
 
@@ -76,8 +77,11 @@ void main() {
         pos = randomCube(idx);
 
     if (EMITTER)
+    {
+        lifeTime = 1;
         pos += EMITTER_POS;
+    }
 
     position[idx] = vec4(pos, 1.0);
-    velocity[idx] = vec4(vec3(0.0), 1.0);
+    velocity[idx] = vec4(vec3(0.0), lifeTime);
 }
