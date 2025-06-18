@@ -2,6 +2,7 @@
 
 out vec4 FragColor;
 in vec3 FragPos;
+in vec4 FragVel;
 
 uniform vec3 MAIN_ATTRACTOR;
 
@@ -15,6 +16,9 @@ uniform int PARTICLE_SHAPE;
 void main() {
     if (PARTICLE_SHAPE == 1 && dot(gl_PointCoord - 0.5 , gl_PointCoord - 0.5) > 0.25) 
         discard;
+
+    if (FragVel.w < 0)
+        discard ;
 
     float distance = length(FragPos - MAIN_ATTRACTOR);
     float normalized = clamp(distance / GRADIENT_SCALE, 0.0, 1.0);

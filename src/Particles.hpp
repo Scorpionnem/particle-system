@@ -6,7 +6,7 @@
 /*   By: mbatty <mbatty@student.42angouleme.fr>     +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/06/16 22:14:23 by mbatty            #+#    #+#             */
-/*   Updated: 2025/06/17 01:15:51 by mbatty           ###   ########.fr       */
+/*   Updated: 2025/06/18 20:56:15 by mbatty           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -20,6 +20,7 @@
 
 extern ComputeShader	*LOAD_SHADER;
 extern ShaderManager	*SHADER_MANAGER;
+extern ComputeShader			*COMPACT_SHADER;
 extern ComputeShader	*COMPUTE_SHADER;
 extern bool				PAUSED;
 extern Camera			*CAMERA;
@@ -48,6 +49,10 @@ class	Particles
 			glGenVertexArrays(1, &posVAO);
 			glCreateBuffers(1, &posBuf);
 			glCreateBuffers(1, &velBuf);
+			glCreateBuffers(1, &counterBuf);
+			glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, counterBuf); //Generate the counter atomic buffer
+			glBufferData(GL_ATOMIC_COUNTER_BUFFER, sizeof(unsigned int), NULL, GL_DYNAMIC_DRAW);
+			glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, 0);
 			loadParticles(particlesCount);
 		}
 		~Particles()
@@ -55,27 +60,51 @@ class	Particles
 			glDeleteVertexArrays(1, &posVAO);
 			glDeleteBuffers(1, &posBuf);
 			glDeleteBuffers(1, &velBuf);
+			glDeleteBuffers(1, &counterBuf);
 		}
 
+		void resetAtomicCounter(unsigned int buf)
+		{
+			glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, buf);
+			unsigned int val[1] = {0};
+			glBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, sizeof(unsigned int), val);
+			glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, 0);
+		}
+		unsigned int getAtomicCounter(unsigned int buf)
+		{
+			GLuint val[1];
+			glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, buf);
+			glGetBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, sizeof(unsigned int), val);
+			glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, 0);
+			return (val[0]);
+		}
 		void render()
 		{
+			if (_usedParticles <= 0)
+				return ;
+				
 			Shader* particleShader = SHADER_MANAGER->get("draw");
 			CAMERA->setViewMatrix(*particleShader);
 		
-			glBindVertexArray(posVAO);
-			glDrawArrays(GL_POINTS, 0, _usedParticles);
-			glBindVertexArray(0);
-		}
-		void update(bool paused, bool gravityCenterOn, glm::vec3 attractor, float deltaTime)
-		{
 			glUseProgram(SHADER_MANAGER->get("draw")->ID);
-			SHADER_MANAGER->get("draw")->setVec3("MAIN_ATTRACTOR", attractor);
 			SHADER_MANAGER->get("draw")->setVec3("NEAR_COLOR", _nearColor);
 			SHADER_MANAGER->get("draw")->setVec3("FAR_COLOR", _farColor);
 			SHADER_MANAGER->get("draw")->setVec3("viewPos", CAMERA->pos);
 			SHADER_MANAGER->get("draw")->setFloat("MAX_PARTICLE_SIZE", _particleSize);
 			SHADER_MANAGER->get("draw")->setInt("PARTICLE_SHAPE", _particleShape);
 			SHADER_MANAGER->get("draw")->setFloat("GRADIENT_SCALE", 50);
+
+			glBindVertexArray(posVAO);
+			glDrawArrays(GL_POINTS, 0, _usedParticles);
+			glBindVertexArray(0);
+		}
+		void update(bool paused, bool gravityCenterOn, glm::vec3 attractor, float deltaTime)
+		{
+			if (_usedParticles <= 0)
+				return ;
+				
+			glUseProgram(SHADER_MANAGER->get("draw")->ID);
+			SHADER_MANAGER->get("draw")->setVec3("MAIN_ATTRACTOR", attractor);
 
 			glUseProgram(COMPUTE_SHADER->ID);
 			glUniform1f(glGetUniformLocation(COMPUTE_SHADER->ID, "time"), glfwGetTime());
@@ -86,8 +115,17 @@ class	Particles
 			if (paused)
 				return ;
 
+			glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, posBuf);
+			glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, velBuf);
+			glBindBufferBase(GL_ATOMIC_COUNTER_BUFFER, 2, counterBuf);
+			resetAtomicCounter(counterBuf);
+			
+			glUseProgram(COMPUTE_SHADER->ID);
 			glDispatchCompute(_usedParticles, 1, 1);
-			glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+			glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_ATOMIC_COUNTER_BARRIER_BIT);
+
+			_liveParticlesCount = getAtomicCounter(counterBuf);
+			GLOBAL_PARTICLES_COUNT += _liveParticlesCount;
 		}
 		void loadParticles(unsigned int countToAdd)
 		{
@@ -102,15 +140,19 @@ class	Particles
 			
 				reallocBuffer(posBuf, _usedParticles * sizeof(glm::vec4), _particlesCapacity * sizeof(glm::vec4));
 				reallocBuffer(velBuf, _usedParticles * sizeof(glm::vec4), _particlesCapacity * sizeof(glm::vec4));
-				
-				glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, posBuf);
-				glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, velBuf);
 
 				glBindVertexArray(posVAO);
 				glBindBuffer(GL_ARRAY_BUFFER, posBuf);
 				glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, (void*)0);
 				glEnableVertexAttribArray(0);
+
+				glBindBuffer(GL_ARRAY_BUFFER, velBuf);
+				glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 0, (void*)0);
+				glEnableVertexAttribArray(1);
 			}
+
+			glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, posBuf);
+			glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, velBuf);
 
 			glUseProgram(LOAD_SHADER->ID);
 			glUniform1ui(glGetUniformLocation(LOAD_SHADER->ID, "u_Offset"), _usedParticles);
@@ -119,10 +161,78 @@ class	Particles
 
 			glUseProgram(LOAD_SHADER->ID);
 			glDispatchCompute(countToAdd, 1, 1);
-			glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+			glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_ATOMIC_COUNTER_BARRIER_BIT);
 
 			_usedParticles = newTotal;
-			GLOBAL_PARTICLES_COUNT += countToAdd;
+			_liveParticlesCount += countToAdd;
+		}
+		void	compactParticles()
+		{
+			if (_usedParticles == 0)
+				return;
+				
+			resetAtomicCounter(counterBuf);
+
+			GLuint tempPosBuf, tempVelBuf;
+			glCreateBuffers(1, &tempPosBuf);
+			glCreateBuffers(1, &tempVelBuf);
+			glNamedBufferData(tempPosBuf, _usedParticles * sizeof(glm::vec4), NULL, GL_DYNAMIC_DRAW);
+			glNamedBufferData(tempVelBuf, _usedParticles * sizeof(glm::vec4), NULL, GL_DYNAMIC_DRAW);
+				
+			glUseProgram(COMPACT_SHADER->ID);
+			glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, posBuf);
+			glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, velBuf);
+			glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, tempPosBuf);
+			glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, tempVelBuf);
+			glBindBufferBase(GL_ATOMIC_COUNTER_BUFFER, 4, counterBuf);
+
+			glUseProgram(COMPACT_SHADER->ID);
+			glDispatchCompute(_usedParticles, 1, 1);
+			glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_ATOMIC_COUNTER_BARRIER_BIT);
+
+			_liveParticlesCount = getAtomicCounter(counterBuf);
+				
+			if (_liveParticlesCount == 0)
+			{
+				glDeleteBuffers(1, &tempPosBuf);
+				glDeleteBuffers(1, &tempVelBuf);
+				_usedParticles = 0;
+				_particlesCapacity = 0;
+				return;
+			}
+
+			GLuint finalPosBuf, finalVelBuf;
+			glCreateBuffers(1, &finalPosBuf);
+			glCreateBuffers(1, &finalVelBuf);
+			glNamedBufferData(finalPosBuf, _liveParticlesCount * sizeof(glm::vec4), NULL, GL_DYNAMIC_DRAW);
+			glNamedBufferData(finalVelBuf, _liveParticlesCount * sizeof(glm::vec4), NULL, GL_DYNAMIC_DRAW);
+		
+			glBindBuffer(GL_COPY_READ_BUFFER, tempPosBuf);
+			glBindBuffer(GL_COPY_WRITE_BUFFER, finalPosBuf);
+			glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, 0, 0, _liveParticlesCount * sizeof(glm::vec4));
+
+			glBindBuffer(GL_COPY_READ_BUFFER, tempVelBuf);
+			glBindBuffer(GL_COPY_WRITE_BUFFER, finalVelBuf);
+			glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, 0, 0, _liveParticlesCount * sizeof(glm::vec4));
+
+			glDeleteBuffers(1, &tempPosBuf);
+			glDeleteBuffers(1, &tempVelBuf);
+			glDeleteBuffers(1, &posBuf);
+			glDeleteBuffers(1, &velBuf);
+
+			posBuf = finalPosBuf;
+			velBuf = finalVelBuf;
+			_usedParticles = _liveParticlesCount;
+			_particlesCapacity = _liveParticlesCount;
+
+			glBindVertexArray(posVAO);
+			glBindBuffer(GL_ARRAY_BUFFER, posBuf);
+			glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, (void*)0);
+			glEnableVertexAttribArray(0);
+
+			glBindBuffer(GL_ARRAY_BUFFER, velBuf);
+			glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 0, (void*)0);
+			glEnableVertexAttribArray(1);
 		}
 		void	setAttractor(glm::vec3 attractor)
 		{
@@ -132,7 +242,8 @@ class	Particles
 		float	getParticleSize() {return (this->_particleSize);}
 		void	setParticleShape(ParticleShape shape) {this->_particleShape = shape;}
 		ParticleShape	getParticleShape() {return (this->_particleShape);}
-	private:	
+		unsigned int getParticlesCount() {return (this->_liveParticlesCount);}
+	// private:	
 		void reallocBuffer(GLuint &buffer, GLsizeiptr oldSize, GLsizeiptr newSize)
 		{
 			GLuint temp;
@@ -151,8 +262,10 @@ class	Particles
 		unsigned int	posVAO = 0;
 		unsigned int	posBuf = 0;
 		unsigned int	velBuf = 0;
+		unsigned int	counterBuf = 0;
 		unsigned int	_usedParticles = 0;
 		unsigned int	_particlesCapacity = 0;
+		unsigned int	_liveParticlesCount = 0;
 		glm::vec3		_farColor;
 		glm::vec3		_nearColor;
 		float			_particleSize;

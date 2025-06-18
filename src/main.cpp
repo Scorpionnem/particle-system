@@ -6,7 +6,7 @@
 /*   By: mbatty <mbatty@student.42angouleme.fr>     +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/04/10 13:33:29 by mbatty            #+#    #+#             */
-/*   Updated: 2025/06/17 01:16:06 by mbatty           ###   ########.fr       */
+/*   Updated: 2025/06/18 20:49:01 by mbatty           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -30,6 +30,8 @@ bool	F3 = false;
 bool	lock_fps = true;
 bool	PAUSED = false;
 
+int currentFPS = 60;
+
 Font				*FONT;
 TextureManager		*TEXTURE_MANAGER;
 InterfaceManager	*INTERFACES_MANAGER;
@@ -39,6 +41,7 @@ Window				*WINDOW;
 ShaderManager		*SHADER_MANAGER;
 ComputeShader		*COMPUTE_SHADER;
 ComputeShader		*LOAD_SHADER;
+ComputeShader		*COMPACT_SHADER;
 Particles			*MAIN_PARTICLES;
 
 unsigned int		GLOBAL_PARTICLES_COUNT = 0;
@@ -56,6 +59,39 @@ int 	LOAD_PARTICLES = 1000;
 bool	GRAVITY_CENTER_ACTIVATED = false;
 bool	PARTICLE_SHAPE = true;
 float	MAX_PARTICLE_SIZE = 30.0;
+
+class	Emitter
+{
+	public:
+		Emitter(glm::vec3 pos): _particles(0)
+		{
+			_pos = pos;
+		}
+		~Emitter()
+		{	
+		}
+		void	emit(int count)
+		{
+			glUseProgram(LOAD_SHADER->ID);
+			glUniform1i(glGetUniformLocation(LOAD_SHADER->ID, "EMITTER"), true);
+			glUniform3fv(glGetUniformLocation(LOAD_SHADER->ID, "EMITTER_POS"), 1, &_pos.x);
+			_particles.loadParticles(count);
+			glUniform1i(glGetUniformLocation(LOAD_SHADER->ID, "EMITTER"), false);
+			glUseProgram(0);
+		}
+		void	render()
+		{
+			_particles.render();
+		}
+		void	update(bool paused, bool gravityCenterOn, glm::vec3 attractor, float deltaTime)
+		{
+			_particles.update(paused, gravityCenterOn, attractor, deltaTime);
+		}
+		Particles	_particles;
+		glm::vec3		_pos;
+};
+
+std::vector<Emitter *> EMITTERS;
 
 void	keyboard_input(GLFWwindow *window, unsigned int key)
 {
@@ -122,6 +158,16 @@ void	key_hook(GLFWwindow *window, int key, int scancode, int action, int mods)
 		MAIN_PARTICLES->setParticleSize(particleSize);
 		MAIN_PARTICLES->setParticleShape(particleShape);
 	}
+	if (key == GLFW_KEY_F3 && action == GLFW_PRESS)
+	{
+		F3 = !F3;
+		if (F3)
+			glfwSwapInterval(0);
+		else
+			glfwSwapInterval(1);
+	}
+	if (key == GLFW_KEY_E && action == GLFW_PRESS)
+		EMITTERS.push_back(new Emitter(CAMERA->pos));
 }
 
 void	build(ShaderManager *shader)
@@ -135,6 +181,7 @@ void	build(ShaderManager *shader)
 
 std::string	getFPSString()
 {
+	currentFPS = (int)(1.0f / WINDOW->_deltaTime);
 	return (std::to_string((int)(1.0f / WINDOW->_deltaTime)) + " fps");
 }
 
@@ -258,7 +305,8 @@ void	printGuide()
 	<< "G               Toggle gravity center\n"
 	<< "P               Pause the simulation\n"
 	<< "Q               Changes particle shape\n"
-	<< "Up/Down + Q     increase/decrease size of particles"
+	<< "Up/Down + Q     Increase/decrease size of particles\n"
+	<< "F3              Unlock FPS"
 	<< std::endl;
 }
 
@@ -287,13 +335,18 @@ void	render()
 {
 	MAIN_PARTICLES->render();
 
+	for (auto *emitter : EMITTERS)
+		emitter->render();
+
 	drawUI();
 }
 
 void	update()
 {
-	bool	leftMouseClicked;
+	static int frame = 0;
 	static glm::vec3	attractor(0);
+	bool	leftMouseClicked;
+	GLOBAL_PARTICLES_COUNT = 0;
 
 	leftMouseClicked = glfwGetMouseButton(WINDOW->getWindowData(), GLFW_MOUSE_BUTTON_1);
 	if (!CAMERA_3D)
@@ -305,6 +358,21 @@ void	update()
 	}
 	MAIN_PARTICLES->update(PAUSED, GRAVITY_CENTER_ACTIVATED, attractor, WINDOW->getDeltaTime());
 	MAIN_PARTICLES->setAttractor(attractor);
+	for (auto *emitter : EMITTERS)
+	{
+		if (GRAVITY_CENTER_ACTIVATED)
+			emitter->emit(100);
+		emitter->update(PAUSED, GRAVITY_CENTER_ACTIVATED, attractor, WINDOW->getDeltaTime());
+	}
+
+	frame++;
+	if (frame >= currentFPS)
+	{
+		MAIN_PARTICLES->compactParticles();
+		for (auto *emitter : EMITTERS)
+			emitter->_particles.compactParticles();
+		frame = 0;
+	}
 }
 
 int	main(int ac, char **av)
@@ -316,8 +384,8 @@ int	main(int ac, char **av)
 	int	count = 0;
 	
 	ac == 2 ? count = std::atoi(av[1]) : count = 100000;
-	if (count > 10000000) {
-		std::cout << "Error\nHEY! Don't you try to crash my PC! (Too many particles)" << std::endl;
+	if (count > 10000000 || count < 0) {
+		std::cout << "Error\nHEY! Don't you try to crash my PC! (Too many/few particles)" << std::endl;
 		return (1);
 	}
 	printGuide();
@@ -326,8 +394,10 @@ int	main(int ac, char **av)
 
 		ComputeShader	computeShader("shaders/particles.cs");
 		ComputeShader	loadShader("shaders/load_particles.cs");
+		ComputeShader	compactShader("shaders/compact.cs");
 		COMPUTE_SHADER = &computeShader;
 		LOAD_SHADER = &loadShader;
+		COMPACT_SHADER = &compactShader;
 
 		Particles	mainParticles(count);
 		MAIN_PARTICLES = &mainParticles;

@@ -58,6 +58,8 @@ vec3 randomSphere(uint id)
 uniform unsigned int u_Offset;
 uniform unsigned int u_Count;
 uniform bool shape;
+uniform bool EMITTER;
+uniform vec3 EMITTER_POS;
 
 void main() {
     uint id = gl_GlobalInvocationID.x;
@@ -67,11 +69,15 @@ void main() {
     uint idx = u_Offset + id;
 
     vec3 pos;
+
     if (shape)
         pos = randomSphere(idx);
     else
         pos = randomCube(idx);
 
+    if (EMITTER)
+        pos += EMITTER_POS;
+
     position[idx] = vec4(pos, 1.0);
-    velocity[idx] = vec4(0.0);
+    velocity[idx] = vec4(vec3(0.0), 1.0);
 }
