@@ -1,6 +1,6 @@
 #version 430
 
-layout(local_size_x = 1) in;
+layout(local_size_x = 100) in;
 
 // Input buffers (all particles)
 layout(std430, binding = 0) buffer PosIn {

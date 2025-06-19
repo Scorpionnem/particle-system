@@ -1,6 +1,6 @@
 #version 430
 
-layout (local_size_x = 1) in;
+layout (local_size_x = 10, local_size_y = 1, local_size_z = 1) in;
 
 layout(std430, binding = 0) buffer Pos {
 	vec4 position[];
@@ -20,7 +20,7 @@ uniform unsigned int MAX_PARTICLES;
 const float Damping = 0.99;
 const float Softening = 2.0;
 
-layout (binding = 2, offset = 0) uniform atomic_uint at_count;
+layout (binding = 2, offset = 0) uniform atomic_uint live_count;
 
 void main()
 {
@@ -38,7 +38,7 @@ void main()
     }
     else
     {
-        atomicCounterIncrement(at_count);
+        atomicCounterIncrement(live_count);
         
         lifeTime -= 0.1 * deltaTime;
 

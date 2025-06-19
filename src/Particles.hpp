@@ -6,7 +6,7 @@
 /*   By: mbatty <mbatty@student.42angouleme.fr>     +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/06/16 22:14:23 by mbatty            #+#    #+#             */
-/*   Updated: 2025/06/18 20:56:15 by mbatty           ###   ########.fr       */
+/*   Updated: 2025/06/19 20:00:21 by mbatty           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -121,7 +121,7 @@ class	Particles
 			resetAtomicCounter(counterBuf);
 			
 			glUseProgram(COMPUTE_SHADER->ID);
-			glDispatchCompute(_usedParticles, 1, 1);
+			glDispatchCompute(_usedParticles / 10, 1, 1);
 			glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_ATOMIC_COUNTER_BARRIER_BIT);
 
 			_liveParticlesCount = getAtomicCounter(counterBuf);
@@ -160,7 +160,7 @@ class	Particles
 			glUniform1i(glGetUniformLocation(LOAD_SHADER->ID, "shape"), _particleShape);
 
 			glUseProgram(LOAD_SHADER->ID);
-			glDispatchCompute(countToAdd, 1, 1);
+			glDispatchCompute(countToAdd / 10, 1, 1);
 			glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_ATOMIC_COUNTER_BARRIER_BIT);
 
 			_usedParticles = newTotal;
@@ -168,9 +168,9 @@ class	Particles
 		}
 		void	compactParticles()
 		{
-			if (_usedParticles == 0)
-				return;
-				
+			if (_usedParticles <= 0 || _liveParticlesCount <= 0)
+				return ;
+
 			resetAtomicCounter(counterBuf);
 
 			GLuint tempPosBuf, tempVelBuf;
@@ -178,7 +178,7 @@ class	Particles
 			glCreateBuffers(1, &tempVelBuf);
 			glNamedBufferData(tempPosBuf, _usedParticles * sizeof(glm::vec4), NULL, GL_DYNAMIC_DRAW);
 			glNamedBufferData(tempVelBuf, _usedParticles * sizeof(glm::vec4), NULL, GL_DYNAMIC_DRAW);
-				
+
 			glUseProgram(COMPACT_SHADER->ID);
 			glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, posBuf);
 			glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, velBuf);
@@ -187,11 +187,11 @@ class	Particles
 			glBindBufferBase(GL_ATOMIC_COUNTER_BUFFER, 4, counterBuf);
 
 			glUseProgram(COMPACT_SHADER->ID);
-			glDispatchCompute(_usedParticles, 1, 1);
+			glDispatchCompute(_usedParticles / 100, 1, 1);
 			glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_ATOMIC_COUNTER_BARRIER_BIT);
 
 			_liveParticlesCount = getAtomicCounter(counterBuf);
-				
+
 			if (_liveParticlesCount == 0)
 			{
 				glDeleteBuffers(1, &tempPosBuf);
@@ -201,27 +201,14 @@ class	Particles
 				return;
 			}
 
-			GLuint finalPosBuf, finalVelBuf;
-			glCreateBuffers(1, &finalPosBuf);
-			glCreateBuffers(1, &finalVelBuf);
-			glNamedBufferData(finalPosBuf, _liveParticlesCount * sizeof(glm::vec4), NULL, GL_DYNAMIC_DRAW);
-			glNamedBufferData(finalVelBuf, _liveParticlesCount * sizeof(glm::vec4), NULL, GL_DYNAMIC_DRAW);
-		
-			glBindBuffer(GL_COPY_READ_BUFFER, tempPosBuf);
-			glBindBuffer(GL_COPY_WRITE_BUFFER, finalPosBuf);
-			glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, 0, 0, _liveParticlesCount * sizeof(glm::vec4));
+			//Size down used buffers and copy from temp
 
-			glBindBuffer(GL_COPY_READ_BUFFER, tempVelBuf);
-			glBindBuffer(GL_COPY_WRITE_BUFFER, finalVelBuf);
-			glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, 0, 0, _liveParticlesCount * sizeof(glm::vec4));
+			reallocBuffer(posBuf, tempPosBuf, _liveParticlesCount * sizeof(glm::vec4));
+			reallocBuffer(velBuf, tempVelBuf, _liveParticlesCount * sizeof(glm::vec4));
 
 			glDeleteBuffers(1, &tempPosBuf);
 			glDeleteBuffers(1, &tempVelBuf);
-			glDeleteBuffers(1, &posBuf);
-			glDeleteBuffers(1, &velBuf);
 
-			posBuf = finalPosBuf;
-			velBuf = finalVelBuf;
 			_usedParticles = _liveParticlesCount;
 			_particlesCapacity = _liveParticlesCount;
 
@@ -258,7 +245,15 @@ class	Particles
 			glDeleteBuffers(1, &buffer);
 			buffer = temp;
 		}
+		void reallocBuffer(GLuint &dest, GLuint &src, GLsizeiptr srcSize)
+		{
+			glBindBuffer(GL_COPY_READ_BUFFER, src);
+			glBindBuffer(GL_COPY_WRITE_BUFFER, dest);
 		
+			glBufferData(GL_COPY_WRITE_BUFFER, srcSize, NULL, GL_DYNAMIC_DRAW);
+			glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, 0, 0, srcSize);
+		}
+
 		unsigned int	posVAO = 0;
 		unsigned int	posBuf = 0;
 		unsigned int	velBuf = 0;

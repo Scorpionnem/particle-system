@@ -6,7 +6,7 @@
 /*   By: mbatty <mbatty@student.42angouleme.fr>     +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/04/10 13:33:29 by mbatty            #+#    #+#             */
-/*   Updated: 2025/06/18 23:42:48 by mbatty           ###   ########.fr       */
+/*   Updated: 2025/06/19 19:56:48 by mbatty           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -67,6 +67,8 @@ class	Emitter
 		Emitter(glm::vec3 pos): _particles(0)
 		{
 			_pos = pos;
+			_particles._farColor = glm::vec3(0.0, 1.0, 0.3);
+			_particles._nearColor = glm::vec3(0.0, 0.3, 1.0);
 		}
 		~Emitter()
 		{	
@@ -86,6 +88,8 @@ class	Emitter
 		}
 		void	update(bool paused, bool gravityCenterOn, glm::vec3 attractor, float deltaTime)
 		{
+			if (!paused)
+				emit(100);
 			_particles.update(paused, gravityCenterOn, attractor, deltaTime);
 		}
 		Particles	_particles;
@@ -342,12 +346,25 @@ void	render()
 	drawUI();
 }
 
-void	update()
+void	tryCompactEmitters()
 {
 	static int frame = 0;
+	
+	frame++;
+	if (frame >= currentFPS)
+	{
+		for (auto *emitter : EMITTERS)
+			emitter->_particles.compactParticles();
+		frame = 0;
+	}
+}
+
+void	update()
+{
 	static glm::vec3	attractor(0);
 	bool	leftMouseClicked;
-	GLOBAL_PARTICLES_COUNT = 0;
+	if (!PAUSED)
+		GLOBAL_PARTICLES_COUNT = 0;
 
 	leftMouseClicked = glfwGetMouseButton(WINDOW->getWindowData(), GLFW_MOUSE_BUTTON_1);
 	if (!CAMERA_3D)
@@ -357,22 +374,30 @@ void	update()
 		if (leftMouseClicked)
 			attractor = getGravityCenterFromMouseFixedDepth(mouseX, mouseY, SCREEN_WIDTH, SCREEN_HEIGHT, glm::perspective(glm::radians(FOV), SCREEN_WIDTH / SCREEN_HEIGHT, 0.1f, RENDER_DISTANCE), CAMERA->getViewMatrix(), CAMERA->pos, 100.0f);
 	}
+	
 	MAIN_PARTICLES->update(PAUSED, GRAVITY_CENTER_ACTIVATED, attractor, WINDOW->getDeltaTime());
-	MAIN_PARTICLES->setAttractor(attractor);
 	for (auto *emitter : EMITTERS)
-	{
-		if (GRAVITY_CENTER_ACTIVATED)
-			emitter->emit(100);
 		emitter->update(PAUSED, GRAVITY_CENTER_ACTIVATED, attractor, WINDOW->getDeltaTime());
-	}
+		
+	tryCompactEmitters();
+}
 
-	frame++;
-	if (frame >= currentFPS)
-	{
-		for (auto *emitter : EMITTERS)
-			emitter->_particles.compactParticles();
-		frame = 0;
-	}
+void	glBugReport(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar *message, const void *userParam)
+{
+	(void)userParam;
+	
+	if (type == GL_DEBUG_TYPE_PERFORMANCE || severity == GL_DEBUG_SEVERITY_NOTIFICATION)
+		// std::cout << "---WARNING---" << std::endl;
+		return ;
+	else
+		std::cout << "---ERROR---" << std::endl;
+	std::cout << "source: " << source << std::endl;
+	std::cout << "type: " << type << std::endl;
+	std::cout << "id: " << id << std::endl;
+	std::cout << "severity: " << severity << std::endl;
+	std::cout << "length: " << length << std::endl;
+	std::cout << "message: " << message << std::endl;
+	std::cout << "-----------" << std::endl;
 }
 
 int	main(int ac, char **av)
@@ -403,6 +428,9 @@ int	main(int ac, char **av)
 		MAIN_PARTICLES = &mainParticles;
 
 		CAMERA->pos.z = 50;
+
+		glEnable(GL_DEBUG_OUTPUT);
+		glDebugMessageCallback(glBugReport, NULL);
 
 		while (WINDOW->up())
 		{
