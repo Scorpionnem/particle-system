@@ -25,4 +25,6 @@ void main()
 
     float size = clamp(MAX_PARTICLE_SIZE / (depth + 0.5), 2.0, MAX_PARTICLE_SIZE);
     gl_PointSize = size;
+    if (FragVel.w < 100)
+        gl_PointSize *= FragVel.w;
 }

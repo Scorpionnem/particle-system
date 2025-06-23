@@ -6,7 +6,7 @@
 /*   By: mbatty <mbatty@student.42angouleme.fr>     +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/04/10 13:33:29 by mbatty            #+#    #+#             */
-/*   Updated: 2025/06/19 19:56:48 by mbatty           ###   ########.fr       */
+/*   Updated: 2025/06/23 09:25:27 by mbatty           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -14,106 +14,104 @@
 #include "Font.hpp"
 #include "ShaderManager.hpp"
 #include "TextureManager.hpp"
-#include "InterfaceManager.hpp"
 #include "Camera.hpp"
 #include "Window.hpp"
 #include "ComputeShader.hpp"
 #include "Particles.hpp"
 #include "Texture.hpp"
+#include "Emitter.hpp"
 
 float	FOV = 65;
 float	SCREEN_WIDTH = 1100;
 float	SCREEN_HEIGHT = 900;
 float	RENDER_DISTANCE = 1000;
 
-bool	F1 = false;
 bool	F3 = false;
-bool	lock_fps = true;
 bool	PAUSED = false;
 
 int currentFPS = 60;
 
 Font				*FONT;
-TextureManager		*TEXTURE_MANAGER;
-InterfaceManager	*INTERFACES_MANAGER;
-Camera				*CAMERA;
 Window				*WINDOW;
+Camera				*CAMERA;
+TextureManager		*TEXTURE_MANAGER;
 
 ShaderManager		*SHADER_MANAGER;
+ComputeShader		*COMPACT_SHADER;
 ComputeShader		*COMPUTE_SHADER;
 ComputeShader		*LOAD_SHADER;
-ComputeShader		*COMPACT_SHADER;
+
 Particles			*MAIN_PARTICLES;
 
 unsigned int		GLOBAL_PARTICLES_COUNT = 0;
 
-bool			CAMERA_3D = false;
+bool				CAMERA_3D = false;
 
-float lastX = SCREEN_WIDTH / 2;
-float lastY = SCREEN_HEIGHT / 2;
+float				lastX = SCREEN_WIDTH / 2;
+float				lastY = SCREEN_HEIGHT / 2;
 
-bool	TEXTBOX_FOCUSED = false;
+int 				LOAD_PARTICLES = 1000;
+bool				GRAVITY_CENTER_ACTIVATED = false;
+bool				PARTICLE_SHAPE = true;
+float				MAX_PARTICLE_SIZE = 30.0;
+bool				VELOCITY_COLOR = false;
 
-unsigned int PARTICLES_CAPACITY = 0;
-
-int 	LOAD_PARTICLES = 1000;
-bool	GRAVITY_CENTER_ACTIVATED = false;
-bool	PARTICLE_SHAPE = true;
-float	MAX_PARTICLE_SIZE = 30.0;
-
-class	Emitter
+class	EmittersManager
 {
 	public:
-		Emitter(glm::vec3 pos): _particles(0)
+		EmittersManager()
 		{
-			_pos = pos;
-			_particles._farColor = glm::vec3(0.0, 1.0, 0.3);
-			_particles._nearColor = glm::vec3(0.0, 0.3, 1.0);
 		}
-		~Emitter()
-		{	
-		}
-		void	emit(int count)
+		~EmittersManager()
 		{
-			glUseProgram(LOAD_SHADER->ID);
-			glUniform1i(glGetUniformLocation(LOAD_SHADER->ID, "EMITTER"), true);
-			glUniform3fv(glGetUniformLocation(LOAD_SHADER->ID, "EMITTER_POS"), 1, &_pos.x);
-			_particles.loadParticles(count);
-			glUniform1i(glGetUniformLocation(LOAD_SHADER->ID, "EMITTER"), false);
-			glUseProgram(0);
+			for (auto *emitter : emitters)
+				delete emitter;
+		}
+		void	addEmitter()
+		{
+			if (emitters.size() < 16)
+				emitters.push_back(new Emitter(CAMERA->pos));
 		}
 		void	render()
 		{
-			_particles.render();
+			for (auto *emitter : emitters)
+				emitter->render();
 		}
-		void	update(bool paused, bool gravityCenterOn, glm::vec3 attractor, float deltaTime)
+		void	update(glm::vec3 attractor, glm::vec3 secondaryAttractor)
 		{
-			if (!paused)
-				emit(100);
-			_particles.update(paused, gravityCenterOn, attractor, deltaTime);
+			for (auto *emitter : emitters)
+				emitter->update(PAUSED, GRAVITY_CENTER_ACTIVATED, attractor, secondaryAttractor, WINDOW->getDeltaTime());
 		}
-		Particles	_particles;
-		glm::vec3		_pos;
+		void	compact()
+		{
+			for (auto *emitter : emitters)
+				emitter->compact();
+		}
+	private:
+		std::vector<Emitter *>	emitters;
 };
 
-std::vector<Emitter *> EMITTERS;
+EmittersManager	*EMITTERS;
+
+enum particlesColor
+{
+	RED_YELLOW,
+	PURPLE_PINK,
+	GREEN_BLUE,
+	BLACK_WHITE,
+	MAX_COLOR
+};
+
+particlesColor	CURRENT_COLOR_SET;
 
 void	keyboard_input(GLFWwindow *window, unsigned int key)
 {
-	(void)window;
-	if (INTERFACES_MANAGER->current)
-		INTERFACES_MANAGER->current->charInput(key);
+	(void)window;(void)key;
 }
 
 void	key_hook(GLFWwindow *window, int key, int scancode, int action, int mods)
 {
 	(void)window;(void)key;(void)scancode;(void)action;(void)mods;
-
-	if (action == GLFW_PRESS || action == GLFW_REPEAT)
-		INTERFACES_MANAGER->current->specialInput(key);
-
-	if (TEXTBOX_FOCUSED)
-		return ;
 
 	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
 		glfwSetWindowShouldClose(window, true);
@@ -172,12 +170,41 @@ void	key_hook(GLFWwindow *window, int key, int scancode, int action, int mods)
 			glfwSwapInterval(1);
 	}
 	if (key == GLFW_KEY_E && action == GLFW_PRESS)
-		EMITTERS.push_back(new Emitter(CAMERA->pos));
+		EMITTERS->addEmitter();
+	if (key == GLFW_KEY_V && (action == GLFW_PRESS || action == GLFW_REPEAT))
+		VELOCITY_COLOR = !VELOCITY_COLOR;
+	if (key == GLFW_KEY_M && (action == GLFW_PRESS || action == GLFW_REPEAT))
+	{
+		int tmp = static_cast<int>(CURRENT_COLOR_SET);
+		tmp++;
+		if (tmp == particlesColor::MAX_COLOR)
+			tmp = particlesColor::RED_YELLOW;
+		if (tmp == particlesColor::RED_YELLOW)
+		{
+			MAIN_PARTICLES->setNearColor(glm::vec3(1.0, 1.0, 0.0));
+			MAIN_PARTICLES->setFarColor(glm::vec3(1.0, 0.0, 0.0));
+		}
+		else if (tmp == particlesColor::GREEN_BLUE)
+		{
+			MAIN_PARTICLES->setNearColor(glm::vec3(0.0, 1.0, 1.0));
+			MAIN_PARTICLES->setFarColor(glm::vec3(0.4, 1.0, 0.0));
+		}
+		else if (tmp == particlesColor::PURPLE_PINK)
+		{
+			MAIN_PARTICLES->setNearColor(glm::vec3(1.0, 0.0, 1.0));
+			MAIN_PARTICLES->setFarColor(glm::vec3(0.5, 0.0, 1.0));
+		}
+		else if (tmp == particlesColor::BLACK_WHITE)
+		{
+			MAIN_PARTICLES->setNearColor(glm::vec3(1.0, 1.0, 1.0));
+			MAIN_PARTICLES->setFarColor(glm::vec3(0.3, 0.3, 0.3));
+		}
+		CURRENT_COLOR_SET = static_cast<particlesColor>(tmp);
+	}
 }
 
 void	build(ShaderManager *shader)
 {
-	shader->load({"gui", GUI_VERT_SHADER, GUI_FRAG_SHADER});
 	shader->load({"text", TEXT_VERT_SHADER, TEXT_FRAG_SHADER});
 	shader->load({"draw", "shaders/draw.vs", "shaders/draw.fs"});
 	shader->get("text")->use();
@@ -187,7 +214,7 @@ void	build(ShaderManager *shader)
 std::string	getFPSString()
 {
 	currentFPS = (int)(1.0f / WINDOW->_deltaTime);
-	return (std::to_string((int)(1.0f / WINDOW->_deltaTime)) + " fps");
+	return (std::to_string(currentFPS) + " fps");
 }
 
 void	drawUI()
@@ -238,7 +265,7 @@ glm::vec3 screenToWorldRay(float mouseX, float mouseY, int screenWidth, int scre
     return (rayWorld);
 }
 
-glm::vec3 getGravityCenterFromMouseFixedDepth(float mouseX, float mouseY, int screenWidth, int screenHeight, const glm::mat4& projection, const glm::mat4& view, const glm::vec3& camPos, float depth)
+glm::vec3 getGravityCenter(float mouseX, float mouseY, int screenWidth, int screenHeight, const glm::mat4& projection, const glm::mat4& view, const glm::vec3& camPos, float depth)
 {
     glm::vec3 rayDir = screenToWorldRay(mouseX, mouseY, screenWidth, screenHeight, projection, view);
     return (camPos + rayDir * depth);
@@ -246,7 +273,7 @@ glm::vec3 getGravityCenterFromMouseFixedDepth(float mouseX, float mouseY, int sc
 
 void	frame_key_hook(Window &window)
 {
-	if (!CAMERA_3D || TEXTBOX_FOCUSED)
+	if (!CAMERA_3D)
 		return ;
 		
 	float cameraSpeed = 15.0f * window.getDeltaTime();
@@ -311,11 +338,12 @@ void	printGuide()
 	<< "P               Pause the simulation\n"
 	<< "Q               Changes particle shape\n"
 	<< "Up/Down + Q     Increase/decrease size of particles\n"
-	<< "F3              Unlock FPS"
+	<< "F3              Unlock FPS\n"
+	<< "V               Visualize velocity as color"
 	<< std::endl;
 }
 
-struct	Engine
+struct	Engine //Simple struct to make the main more light (Just initiates all of the global variables)
 {
 	Engine()
 	{
@@ -325,24 +353,20 @@ struct	Engine
 		SHADER_MANAGER = &this->shaderManager;
 		build(SHADER_MANAGER);
 		TEXTURE_MANAGER = &this->textureManager;
-		INTERFACES_MANAGER = &this->InterfaceManager;
-		build(INTERFACES_MANAGER);
 	}
 	Window				window;
 	Camera				camera;
 	Font				font;
 	ShaderManager		shaderManager;
 	TextureManager		textureManager;
-	InterfaceManager	InterfaceManager;
 };
 
 void	render()
 {
 	MAIN_PARTICLES->render();
 
-	for (auto *emitter : EMITTERS)
-		emitter->render();
-
+	EMITTERS->render();
+	
 	drawUI();
 }
 
@@ -353,8 +377,7 @@ void	tryCompactEmitters()
 	frame++;
 	if (frame >= currentFPS)
 	{
-		for (auto *emitter : EMITTERS)
-			emitter->_particles.compactParticles();
+		EMITTERS->compact();
 		frame = 0;
 	}
 }
@@ -362,23 +385,38 @@ void	tryCompactEmitters()
 void	update()
 {
 	static glm::vec3	attractor(0);
+	static glm::vec3	secondaryAttractor(0);
+	static glm::vec3	mousePos;
 	bool	leftMouseClicked;
+	bool	rightMouseClicked;
+
+	SHADER_MANAGER->get("draw")->setBool("VELOCITY_COLOR", VELOCITY_COLOR);
+
 	if (!PAUSED)
 		GLOBAL_PARTICLES_COUNT = 0;
 
 	leftMouseClicked = glfwGetMouseButton(WINDOW->getWindowData(), GLFW_MOUSE_BUTTON_1);
+	rightMouseClicked = glfwGetMouseButton(WINDOW->getWindowData(), GLFW_MOUSE_BUTTON_2);
+	
 	if (!CAMERA_3D)
 	{
 		double	mouseX, mouseY;
 		glfwGetCursorPos(WINDOW->getWindowData(), &mouseX, &mouseY);
+		mousePos = getGravityCenter(mouseX, mouseY, SCREEN_WIDTH, SCREEN_HEIGHT, glm::perspective(glm::radians(FOV), SCREEN_WIDTH / SCREEN_HEIGHT, 0.1f, RENDER_DISTANCE), CAMERA->getViewMatrix(), CAMERA->pos, 100.0f);
 		if (leftMouseClicked)
-			attractor = getGravityCenterFromMouseFixedDepth(mouseX, mouseY, SCREEN_WIDTH, SCREEN_HEIGHT, glm::perspective(glm::radians(FOV), SCREEN_WIDTH / SCREEN_HEIGHT, 0.1f, RENDER_DISTANCE), CAMERA->getViewMatrix(), CAMERA->pos, 100.0f);
+		{
+			attractor = mousePos;
+			secondaryAttractor = attractor;
+		}
+		else if (rightMouseClicked)
+			secondaryAttractor = mousePos;
 	}
-	
-	MAIN_PARTICLES->update(PAUSED, GRAVITY_CENTER_ACTIVATED, attractor, WINDOW->getDeltaTime());
-	for (auto *emitter : EMITTERS)
-		emitter->update(PAUSED, GRAVITY_CENTER_ACTIVATED, attractor, WINDOW->getDeltaTime());
-		
+
+	SHADER_MANAGER->get("draw")->setVec3("MOUSE_POS", mousePos);
+
+	MAIN_PARTICLES->update(PAUSED, GRAVITY_CENTER_ACTIVATED, attractor, secondaryAttractor, WINDOW->getDeltaTime());
+	EMITTERS->update(attractor, secondaryAttractor);
+
 	tryCompactEmitters();
 }
 
@@ -399,6 +437,30 @@ void	glBugReport(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei
 	std::cout << "message: " << message << std::endl;
 	std::cout << "-----------" << std::endl;
 }
+
+/*
+
+Manda:
+DONE	OpenGL 4.x (Using OpenGL 4.3)
+DONE	Never allocate on RAM
+DONE	1 Million 60FPS (500FPS)
+DONE	3 Million 20FPS (250FPS)
+DONE~	Interoperability (glMemoryBarrier is a memory synchronization function)
+DONE	Print FPS on window
+DONE	Color based on distance to cursor
+
+Bonuses:
+DONE	-Changing particles shape
+DONE	-Changing particles size
+DONE	-Particles fade out and go smaller as they die
+DONE	-Show velocity as color mode
+DONE	-Different color sets (green blue, red yellow, purple pink, gray white)
+DONE	-2 attraction points
+
+For evaluation:
+- Use nvidia-smi to check VRAM usage
+- Use htop to check RAM usage
+*/
 
 int	main(int ac, char **av)
 {
@@ -427,16 +489,18 @@ int	main(int ac, char **av)
 		Particles	mainParticles(count);
 		MAIN_PARTICLES = &mainParticles;
 
+		EmittersManager	emitters;
+		EMITTERS = &emitters;
+
 		CAMERA->pos.z = 50;
 
-		glEnable(GL_DEBUG_OUTPUT);
-		glDebugMessageCallback(glBugReport, NULL);
+		// glEnable(GL_DEBUG_OUTPUT); //Uncomment to have GL's debug output (Errors)
+		// glDebugMessageCallback(glBugReport, NULL);
 
 		while (WINDOW->up())
 		{
 			WINDOW->loopStart();
 			CAMERA->update();
-			INTERFACES_MANAGER->update();
 			update(SHADER_MANAGER);
 
 			update();

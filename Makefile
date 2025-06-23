@@ -22,9 +22,8 @@ CPP_FILES :=	main \
 				Shader \
 				Texture \
 				Font \
-				UIElement \
-				InterfaceManager \
-				Interfaces/main
+				Particles \
+				Emitter
 
 CPP_FILES := $(addsuffix .cpp, $(CPP_FILES))
 
@@ -40,7 +39,7 @@ GLAD_PATH = libs/glad
 all: glfw glad glm $(NAME)
 
 run: all
-	@./$(NAME)
+	@./$(NAME) 1000000
 
 vrun: all
 	@valgrind ./$(NAME)

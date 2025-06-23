@@ -20,7 +20,7 @@ uint hash(uint x)
     return x;
 }
 
-float rand01(uint seed)
+float rand(uint seed)
 {
     return float(hash(seed) & 0xFFFFu) / 65535.0;
 }
@@ -30,9 +30,9 @@ vec3 randomCube(uint id)
     float   cubeSize = 20.0;
 
     return vec3(
-        rand01(id * 3 + 0) * cubeSize - (cubeSize / 2),
-        rand01(id * 3 + 1) * cubeSize - (cubeSize / 2),
-        rand01(id * 3 + 2) * cubeSize - (cubeSize / 2)
+        rand(id * 3 + 0) * cubeSize - (cubeSize / 2),
+        rand(id * 3 + 1) * cubeSize - (cubeSize / 2),
+        rand(id * 3 + 2) * cubeSize - (cubeSize / 2)
     );
 }
 
@@ -40,8 +40,8 @@ vec3 randomSphere(uint id)
 {
     float radius = 10.0;
 
-    float u = rand01(id * 3 + 0) * 2.0 - 1.0;
-    float theta = rand01(id * 3 + 1) * 6.2831853;
+    float u = rand(id * 3 + 0) * 2.0 - 1.0;
+    float theta = rand(id * 3 + 1) * 6.2831853;
 
     float sqrtOneMinusU2 = sqrt(1.0 - u * u);
     float x = sqrtOneMinusU2 * cos(theta);
@@ -50,7 +50,7 @@ vec3 randomSphere(uint id)
 
     vec3 dir = vec3(x, y, z);
 
-    float r = pow(rand01(id * 3 + 2), 1.0/3.0) * radius;
+    float r = pow(rand(id * 3 + 2), 1.0/3.0) * radius;
 
     return dir * r;
 }

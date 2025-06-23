@@ -6,12 +6,11 @@
 /*   By: mbatty <mbatty@student.42angouleme.fr>     +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/05/03 12:11:45 by mbatty            #+#    #+#             */
-/*   Updated: 2025/06/16 22:55:03 by mbatty           ###   ########.fr       */
+/*   Updated: 2025/06/23 10:57:38 by mbatty           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "Window.hpp"
-#include "Terminal.hpp"
 #include "Camera.hpp"
 
 static void resize_hook(GLFWwindow* window, int width, int height)
@@ -61,7 +60,7 @@ Window::Window() : _lastFrame(0)
 	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 	glEnable(GL_DEPTH_TEST);
 	this->center();
-	// this->setIcon("src/assets/textures/icon_swapped.bmp");
+	this->setIcon("textures/mbatty.bmp");
 }
 
 Window::~Window()
