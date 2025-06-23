@@ -14,3 +14,5 @@ And here are a few screenshots to showcase the project:
 ![Screenshot from 2025-06-15 14-38-03](https://github.com/user-attachments/assets/d688608d-b430-4d65-9cd9-fbaacac423a2)
 
 ![Screenshot from 2025-06-15 14-38-13](https://github.com/user-attachments/assets/47a5ee5e-97d4-41de-8b56-8e6a8b28afdc)
+
+![Screenshot from 2025-06-23 21-22-49](https://github.com/user-attachments/assets/9c3319c5-4ce8-4e7b-a0b8-154e211fe987)
