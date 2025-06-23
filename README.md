@@ -5,6 +5,7 @@ This project is part of the 42 curriculum, aiming to explore parallel computing 
 
 The main goals of the project are:
 - Handling millions of particles smoothly (Subjects asks for 1 million particles at 60fps and I get ~270fps)
+- Clean synchronisation of memory between CPU and GPU
 
 To compile and run this project you can just use make/make bonus to create the binary file used to launch the program.
 
