@@ -2,7 +2,7 @@
 obj/
 *.o
 *.d
-42run
+particle-system
 
 # Ignore external libraries (They are cloned by the Makefile)
 GLFW/
