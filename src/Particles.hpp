@@ -6,7 +6,7 @@
 /*   By: mbatty <mbatty@student.42angouleme.fr>     +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/06/16 22:14:23 by mbatty            #+#    #+#             */
-/*   Updated: 2025/06/22 17:27:05 by mbatty           ###   ########.fr       */
+/*   Updated: 2025/06/24 15:20:54 by mbatty           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -63,7 +63,7 @@ class	Particles
 		
 			glBufferData(GL_COPY_WRITE_BUFFER, newSize, NULL, GL_DYNAMIC_DRAW);
 			glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, 0, 0, oldSize);
-		
+
 			glDeleteBuffers(1, &buffer);
 			buffer = temp;
 		}

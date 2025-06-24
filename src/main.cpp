@@ -6,7 +6,7 @@
 /*   By: mbatty <mbatty@student.42angouleme.fr>     +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/04/10 13:33:29 by mbatty            #+#    #+#             */
-/*   Updated: 2025/06/24 14:34:10 by mbatty           ###   ########.fr       */
+/*   Updated: 2025/06/24 15:23:22 by mbatty           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -462,6 +462,13 @@ For evaluation:
 - Use htop to check RAM usage
 */
 
+#include <csignal>
+
+void	handleSIGINT(int)
+{
+	glfwSetWindowShouldClose(WINDOW->getWindowData(), true);
+}
+
 int	main(int ac, char **av)
 {
 	if (ac > 2) {
@@ -476,6 +483,7 @@ int	main(int ac, char **av)
 		return (1);
 	}
 	printGuide();
+	std::signal(SIGINT, handleSIGINT);
 	try {
 		Engine	engine;
 
