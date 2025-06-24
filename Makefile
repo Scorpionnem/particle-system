@@ -23,7 +23,8 @@ CPP_FILES :=	main \
 				Texture \
 				Font \
 				Particles \
-				Emitter
+				Emitter \
+				Skybox
 
 CPP_FILES := $(addsuffix .cpp, $(CPP_FILES))
 

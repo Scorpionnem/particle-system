@@ -6,7 +6,7 @@
 /*   By: mbatty <mbatty@student.42angouleme.fr>     +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/04/10 13:33:29 by mbatty            #+#    #+#             */
-/*   Updated: 2025/06/24 15:23:22 by mbatty           ###   ########.fr       */
+/*   Updated: 2025/06/24 16:00:35 by mbatty           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -20,6 +20,7 @@
 #include "Particles.hpp"
 #include "Texture.hpp"
 #include "Emitter.hpp"
+#include "Skybox.hpp"
 
 float	FOV = 65;
 float	SCREEN_WIDTH = 1100;
@@ -28,6 +29,7 @@ float	RENDER_DISTANCE = 1000;
 
 bool	F3 = false;
 bool	PAUSED = false;
+bool	SKYBOX_ACTIVE = false;
 
 int currentFPS = 60;
 
@@ -55,6 +57,10 @@ bool				GRAVITY_CENTER_ACTIVATED = false;
 bool				PARTICLE_SHAPE = true;
 float				MAX_PARTICLE_SIZE = 30.0;
 bool				VELOCITY_COLOR = false;
+
+# define SKYBOX_PATHES "textures/skybox/right.bmp","textures/skybox/left.bmp","textures/skybox/top.bmp","textures/skybox/bottom.bmp","textures/skybox/front.bmp","textures/skybox/back.bmp"
+
+Skybox	*SKYBOX;
 
 class	EmittersManager
 {
@@ -201,14 +207,19 @@ void	key_hook(GLFWwindow *window, int key, int scancode, int action, int mods)
 		}
 		CURRENT_COLOR_SET = static_cast<particlesColor>(tmp);
 	}
+	if (key == GLFW_KEY_J && action == GLFW_PRESS)
+		SKYBOX_ACTIVE = !SKYBOX_ACTIVE;
 }
 
 void	build(ShaderManager *shader)
 {
 	shader->load({"text", TEXT_VERT_SHADER, TEXT_FRAG_SHADER});
 	shader->load({"draw", "shaders/draw.vs", "shaders/draw.fs"});
+	shader->load({"skybox", SKYBOX_VERT_SHADER, SKYBOX_FRAG_SHADER});
 	shader->get("text")->use();
 	shader->get("text")->setInt("tex0", 0);
+	shader->get("skybox")->use();
+	shader->get("skybox")->setInt("skybox", 0);
 }
 
 std::string	getFPSString()
@@ -339,7 +350,8 @@ void	printGuide()
 	<< "Q               Changes particle shape\n"
 	<< "Up/Down + Q     Increase/decrease size of particles\n"
 	<< "F3              Unlock FPS\n"
-	<< "V               Visualize velocity as color"
+	<< "V               Visualize velocity as color\n"
+	<< "J               Toggle skybox"
 	<< std::endl;
 }
 
@@ -363,6 +375,9 @@ struct	Engine //Simple struct to make the main more light (Just initiates all of
 
 void	render()
 {
+	if (SKYBOX_ACTIVE)
+		SKYBOX->draw(*CAMERA, *SHADER_MANAGER->get("skybox"));
+
 	MAIN_PARTICLES->render();
 
 	EMITTERS->render();
@@ -456,6 +471,7 @@ DONE	-Particles fade out and go smaller as they die
 DONE	-Show velocity as color mode
 DONE	-Different color sets (green blue, red yellow, purple pink, gray white)
 DONE	-2 attraction points
+DONE	Skybox
 
 For evaluation:
 - Use nvidia-smi to check VRAM usage
@@ -499,6 +515,9 @@ int	main(int ac, char **av)
 
 		EmittersManager	emitters;
 		EMITTERS = &emitters;
+
+		Skybox	skybox({SKYBOX_PATHES});
+		SKYBOX = &skybox;
 
 		CAMERA->pos.z = 50;
 

@@ -16,7 +16,7 @@ class	Skybox
 		unsigned int	ID;
 		unsigned int	VAO;
 		unsigned int	VBO;
-		mat4    		model;
+		glm::mat4    		model;
 };
 
 #endif

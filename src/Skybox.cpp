@@ -6,12 +6,11 @@
 /*   By: mbatty <mbatty@student.42angouleme.fr>     +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/06/08 15:22:58 by mbatty            #+#    #+#             */
-/*   Updated: 2025/06/08 15:30:27 by mbatty           ###   ########.fr       */
+/*   Updated: 2025/06/24 15:55:47 by mbatty           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "Skybox.hpp"
-#include "Game.hpp"
 
 float skyboxVertices[] = {
     -1.0f,  1.0f, -1.0f,
@@ -68,7 +67,7 @@ Skybox::~Skybox()
 
 Skybox::Skybox(const std::vector<std::string> &faces)
 {
-    model = mat4(1);
+    model = glm::mat4(1);
     if (DEBUG)
         std::cout << "Loading skybox" << std::endl;
 
@@ -101,18 +100,14 @@ void	Skybox::draw(Camera &camera, Shader &shader)
 {
     glDisable(GL_DEPTH_TEST);
     shader.use();
+
+    glm::mat4 view = camera.getViewMatrix();
+
+    view[3] = glm::vec4(0, 0, 0, 1);
+
     camera.setViewMatrix(shader);
-
-    mat4 view = camera.getViewMatrix();
-    view.data[12] = 0.0f;
-    view.data[13] = 0.0f;
-    view.data[14] = 0.0f;
-    shader.setMat4("view", view);
-
-    if (!GAME->started)
-        model = rotate(model, toRadians(4 * GAME->window.getDeltaTime()) ,vec3(0, 1, 0));
-
     shader.setMat4("model", model);
+    shader.setMat4("view", view);
     glBindVertexArray(VAO);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_CUBE_MAP, ID);
