@@ -55,14 +55,15 @@ vec3 randomSphere(uint id)
     return dir * r;
 }
 
-uniform unsigned int u_Offset;
-uniform unsigned int u_Count;
+uniform uint u_Offset;
+uniform uint u_Count;
 uniform bool shape;
 uniform bool EMITTER;
 uniform vec3 EMITTER_POS;
 
 void main() {
     uint id = gl_GlobalInvocationID.x;
+    
 	if (id >= u_Count)
         return;
 

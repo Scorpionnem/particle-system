@@ -6,7 +6,7 @@
 /*   By: mbatty <mbatty@student.42angouleme.fr>     +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/06/22 16:55:03 by mbatty            #+#    #+#             */
-/*   Updated: 2025/06/22 17:27:19 by mbatty           ###   ########.fr       */
+/*   Updated: 2025/06/24 14:55:20 by mbatty           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -74,6 +74,7 @@ void Particles::update(bool paused, bool gravityCenterOn, glm::vec3 attractor, g
 	glUniform3fv(glGetUniformLocation(COMPUTE_SHADER->ID, "MAIN_ATTRACTOR"), 1, &attractor.x);
 	glUniform3fv(glGetUniformLocation(COMPUTE_SHADER->ID, "SECONDARY_ATTRACTOR"), 1, &secondaryAttractor.x);
 	glUniform1f(glGetUniformLocation(COMPUTE_SHADER->ID, "deltaTime"), deltaTime);
+	glUniform1ui(glGetUniformLocation(COMPUTE_SHADER->ID, "USED_PARTICLES"), _usedParticles);
 
 	if (paused)
 		return ;
@@ -82,9 +83,9 @@ void Particles::update(bool paused, bool gravityCenterOn, glm::vec3 attractor, g
 	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, velBuf);
 	glBindBufferBase(GL_ATOMIC_COUNTER_BUFFER, 2, counterBuf);
 	resetAtomicCounter(counterBuf);
-			
+
 	glUseProgram(COMPUTE_SHADER->ID);
-	glDispatchCompute(_usedParticles / 10, 1, 1);
+	glDispatchCompute(_usedParticles / 10 + 1, 1, 1);
 	glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_ATOMIC_COUNTER_BARRIER_BIT);
 
 	_liveParticlesCount = getAtomicCounter(counterBuf);
@@ -101,7 +102,7 @@ void Particles::loadParticles(unsigned int countToAdd)
 	if (newTotal > _particlesCapacity)
 	{
 		_particlesCapacity = std::max(newTotal, _particlesCapacity * 3 / 2 + 1);
-	
+
 		reallocBuffer(posBuf, _usedParticles * sizeof(glm::vec4), _particlesCapacity * sizeof(glm::vec4));
 		reallocBuffer(velBuf, _usedParticles * sizeof(glm::vec4), _particlesCapacity * sizeof(glm::vec4));
 
@@ -124,7 +125,7 @@ void Particles::loadParticles(unsigned int countToAdd)
 	glUniform1i(glGetUniformLocation(LOAD_SHADER->ID, "shape"), _particleShape);
 
 	glUseProgram(LOAD_SHADER->ID);
-	glDispatchCompute(countToAdd / 10, 1, 1);
+	glDispatchCompute(countToAdd / 10 + 1, 1, 1);
 	glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_ATOMIC_COUNTER_BARRIER_BIT);
 
 	_usedParticles = newTotal;

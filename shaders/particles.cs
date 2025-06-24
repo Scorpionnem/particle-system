@@ -36,9 +36,14 @@ vec3   calcVelocityToAttractor(vec3 particlePos, vec3 attractor, float gravity)
     return (res);
 }
 
+uniform uint USED_PARTICLES;
+
 void main()
 {
     uint idx = gl_GlobalInvocationID.x;
+
+    if (idx >= USED_PARTICLES)
+        return ;
 
     vec3 pos = position[idx].xyz;
     vec3 vel = velocity[idx].xyz;
