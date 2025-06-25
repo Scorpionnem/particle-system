@@ -6,7 +6,7 @@
 /*   By: mbatty <mbatty@student.42angouleme.fr>     +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/04/10 13:33:29 by mbatty            #+#    #+#             */
-/*   Updated: 2025/06/24 16:00:35 by mbatty           ###   ########.fr       */
+/*   Updated: 2025/06/25 11:56:33 by mbatty           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -21,6 +21,7 @@
 #include "Texture.hpp"
 #include "Emitter.hpp"
 #include "Skybox.hpp"
+#include "EmittersManager.hpp"
 
 float	FOV = 65;
 float	SCREEN_WIDTH = 1100;
@@ -31,12 +32,15 @@ bool	F3 = false;
 bool	PAUSED = false;
 bool	SKYBOX_ACTIVE = false;
 
-int currentFPS = 60;
+int		currentFPS = 60;
 
 Font				*FONT;
 Window				*WINDOW;
 Camera				*CAMERA;
+Skybox				*SKYBOX;
+
 TextureManager		*TEXTURE_MANAGER;
+EmittersManager		*EMITTERS;
 
 ShaderManager		*SHADER_MANAGER;
 ComputeShader		*COMPACT_SHADER;
@@ -57,47 +61,6 @@ bool				GRAVITY_CENTER_ACTIVATED = false;
 bool				PARTICLE_SHAPE = true;
 float				MAX_PARTICLE_SIZE = 30.0;
 bool				VELOCITY_COLOR = false;
-
-# define SKYBOX_PATHES "textures/skybox/right.bmp","textures/skybox/left.bmp","textures/skybox/top.bmp","textures/skybox/bottom.bmp","textures/skybox/front.bmp","textures/skybox/back.bmp"
-
-Skybox	*SKYBOX;
-
-class	EmittersManager
-{
-	public:
-		EmittersManager()
-		{
-		}
-		~EmittersManager()
-		{
-			for (auto *emitter : emitters)
-				delete emitter;
-		}
-		void	addEmitter()
-		{
-			if (emitters.size() < 16)
-				emitters.push_back(new Emitter(CAMERA->pos));
-		}
-		void	render()
-		{
-			for (auto *emitter : emitters)
-				emitter->render();
-		}
-		void	update(glm::vec3 attractor, glm::vec3 secondaryAttractor)
-		{
-			for (auto *emitter : emitters)
-				emitter->update(PAUSED, GRAVITY_CENTER_ACTIVATED, attractor, secondaryAttractor, WINDOW->getDeltaTime());
-		}
-		void	compact()
-		{
-			for (auto *emitter : emitters)
-				emitter->compact();
-		}
-	private:
-		std::vector<Emitter *>	emitters;
-};
-
-EmittersManager	*EMITTERS;
 
 enum particlesColor
 {
