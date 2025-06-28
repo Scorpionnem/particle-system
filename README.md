@@ -1,4 +1,3 @@
-This project is still a WIP as I didnt evaluate it yet
 
 A simple particle system built using OpenGL and its compute shaders
 This project is part of the 42 curriculum, aiming to explore parallel computing to work on optimized programs.
