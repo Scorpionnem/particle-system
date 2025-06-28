@@ -1,3 +1,4 @@
+42 Grade: 125/100
 
 A simple particle system built using OpenGL and its compute shaders
 This project is part of the 42 curriculum, aiming to explore parallel computing to work on optimized programs.
@@ -5,6 +6,13 @@ This project is part of the 42 curriculum, aiming to explore parallel computing 
 The main goals of the project are:
 - Handling millions of particles smoothly (Subjects asks for 1 million particles at 60fps and I get ~270fps)
 - Clean synchronisation of memory between CPU and GPU
+
+For the bonuses I didnt go too crazy:
+- Camera/Emitters as the subject asks
+- Color can be set as the velocity of the particle
+- Different color modes
+- Particles fade out and get smaller as they die (Only affects particles from emitters)
+- Change the shape/size of the main particles
 
 To compile and run this project you can just use make/make bonus to create the binary file used to launch the program.
 
